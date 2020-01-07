@@ -1,0 +1,53 @@
+{
+  "name": "tiltseeker",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@fortawesome/fontawesome-svg-core": "^1.2.22",
+    "@fortawesome/free-solid-svg-icons": "^5.10.2",
+    "@fortawesome/react-fontawesome": "^0.1.4",
+    "aphrodite": "^2.3.1",
+    "axios": "^0.19.0",
+    "axios-retry": "^3.1.2",
+    "mongoose": "^5.8.4",
+    "npm-run-all": "^4.1.5",
+    "react": "^16.8.6",
+    "react-cookies": "^0.1.1",
+    "react-dom": "^16.8.6",
+    "react-redux": "^7.1.0",
+    "react-router-dom": "^5.0.1",
+    "react-scripts": "3.0.1",
+    "redux": "^4.0.2"
+  },
+  "scripts": {
+    "start": "node server",
+    "dev": "npm-run-all --parallel site server",
+    "site": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "server": "node-env-run server --exec nodemon | pino-colada"
+  },
+  "eslintConfig": {
+    "extends": "react-app"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "body-parser": "^1.19.0",
+    "express": "^4.17.1",
+    "node-env-run": "^3.0.2",
+    "nodemon": "^2.0.2",
+    "pino-colada": "^1.5.0"
+  }
+}
