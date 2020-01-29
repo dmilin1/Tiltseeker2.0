@@ -60,6 +60,11 @@ const playerSchema = new Schema({
 	magicDamageDealtToChampions: { type: Number, required: true },
 	physicalDamageDealtToChampions: { type: Number, required: true },
 	trueDamageDealtToChampions: { type: Number, required: true },
+	totalDamageDealtToChampions: { type: Number, required: true },
+	magicalDamageTaken: { type: Number, required: true },
+	physicalDamageTaken: { type: Number, required: true },
+	trueDamageTaken: { type: Number, required: true },
+	totalDamageTaken: { type: Number, required: true },
 	damageDealtToObjectives: { type: Number, required: true },
 	damageDealtToTurrets: { type: Number, required: true },
 	kills: { type: Number, required: true },
@@ -92,11 +97,17 @@ const Player = mongoose.model('Player', playerSchema);
 class DataCollector {
 	constructor() {
 		this.maxAge = (3 * 24 * 60 * 60 * 1000) // 3 days
-		this.maxMatches = 100
+		this.maxMatches = 10000
 
+		this.stats = null
+
+		this.currentlyRefreshing = false
 		this.pause = false
 		this._connect()
-		this.refreshData()
+
+		this.interval = setInterval(() => {
+			if (!this.pause) { this.refreshData() }
+		}, 300000)
 	}
 
 	_connect() {
@@ -144,6 +155,10 @@ class DataCollector {
 	}
 
 	refreshData() {
+		if (this.currentlyRefreshing) {
+			return
+		}
+
 		var ageLimit = Date.now() - this.maxAge // 3 days ago
 
 		var clearOldMatches = () => {
@@ -242,6 +257,11 @@ class DataCollector {
 					player.magicDamageDealtToChampions = participant.stats.magicDamageDealtToChampions
 					player.physicalDamageDealtToChampions = participant.stats.physicalDamageDealtToChampions
 					player.trueDamageDealtToChampions = participant.stats.trueDamageDealtToChampions
+					player.totalDamageDealtToChampions = participant.stats.totalDamageDealtToChampions
+					player.magicalDamageTaken = participant.stats.magicalDamageTaken
+					player.physicalDamageTaken = participant.stats.physicalDamageTaken
+					player.trueDamageTaken = participant.stats.trueDamageTaken
+					player.totalDamageTaken = participant.stats.totalDamageTaken
 					player.damageDealtToObjectives = participant.stats.damageDealtToObjectives
 					player.damageDealtToTurrets = participant.stats.damageDealtToTurrets
 					player.kills = participant.stats.kills
@@ -365,56 +385,97 @@ class DataCollector {
 					$group: {
 						_id: '$championId',
 						count: { $sum: 1 },
-						winRate: { $avg: '$win' },
-						gameDuration: { $avg: '$gameDuration' },
+						winRateAvg: { $avg: '$win' },
+						gameDurationAvg: { $avg: '$gameDuration' },
 
 						spell1Id: { $max: '$spell1Id' },
 						spell2Id: { $max: '$spell2Id' },
 
-						firstBloodParticipate: { $avg: { $max: ['$firstBloodKill','$firstBloodAssist'] } },
-						visionScore: { $avg: '$visionScore' },
-						magicDamageDealtToChampions: { $avg: '$magicDamageDealtToChampions' },
-						physicalDamageDealtToChampions: { $avg: '$physicalDamageDealtToChampions' },
-						trueDamageDealtToChampions: { $avg: '$trueDamageDealtToChampions' },
-						damageDealtToObjectives: { $avg: '$damageDealtToObjectives' },
-						damageDealtToTurrets: { $avg: '$damageDealtToTurrets' },
-						kills: { $avg: '$kills' },
-						deaths: { $avg: '$deaths' },
-						assists: { $avg: '$assists' },
-						visionScore: { $avg: '$visionScore' },
-						wardsKilled: { $avg: '$wardsKilled' },
-						neutralMinionsKilledTeamJungle: { $avg: '$neutralMinionsKilledTeamJungle' },
-						neutralMinionsKilledEnemyJungle: { $avg: '$neutralMinionsKilledEnemyJungle' },
-						damageSelfMitigated: { $avg: '$damageSelfMitigated' },
-						firstInhibitorParticipate: { $avg: { $max: ['$firstInhibitorKill','$firstInhibitorAssist'] } },
-						goldEarned: { $avg: '$goldEarned' },
-						timeCCingOthers: { $avg: '$timeCCingOthers' },
-						totalHeal: { $avg: '$totalHeal' },
+						firstBloodParticipateAvg: { $avg: { $max: ['$firstBloodKill','$firstBloodAssist'] } },
+						visionScorePerSecAvg: { $avg: { $divide: [ '$visionScore', '$gameDuration' ] } },
+						magicDamageDealtToChampionPerSecsAvg: { $avg: { $divide: [ '$magicDamageDealtToChampions', '$gameDuration' ] } },
+						physicalDamageDealtToChampionsPerSecAvg: { $avg: { $divide: [ '$physicalDamageDealtToChampions', '$gameDuration' ] } },
+						trueDamageDealtToChampionsPerSecAvg: { $avg: { $divide: [ '$trueDamageDealtToChampions', '$gameDuration' ] } },
+						totalDamageDealtToChampionsPerSecAvg: { $avg: { $divide: [ '$totalDamageDealtToChampions', '$gameDuration' ] } },
+						magicalDamageTakenPerSecAvg: { $avg: { $divide: [ '$magicalDamageTaken', '$gameDuration' ] } },
+						physicalDamageTakenPerSecAvg: { $avg: { $divide: [ '$physicalDamageTaken', '$gameDuration' ] } },
+						trueDamageTakenPerSecAvg: { $avg: { $divide: [ '$trueDamageTaken', '$gameDuration' ] } },
+						totalDamageTakenPerSecAvg: { $avg: { $divide: [ '$totalDamageTaken', '$gameDuration' ] } },
+						damageDealtToObjectivesAvg: { $avg: '$damageDealtToObjectives' },
+						damageDealtToTurretsAvg: { $avg: '$damageDealtToTurrets' },
+						killsPerSecAvg: { $avg: { $divide: [ '$kills', '$gameDuration' ] } },
+						deathsPerSecAvg: { $avg: { $divide: [ '$deaths', '$gameDuration' ] } },
+						assistsPerSecAvg: { $avg: { $divide: [ '$assists', '$gameDuration' ] } },
+						wardsKilledPerSecAvg: { $avg: { $divide: [ '$wardsKilled', '$gameDuration' ] } },
+						neutralMinionsKilledTeamJunglePerSecAvg: { $avg: { $divide: [ '$neutralMinionsKilledTeamJungle', '$gameDuration' ] } },
+						neutralMinionsKilledEnemyJunglePerSecAvg: { $avg: { $divide: [ '$neutralMinionsKilledEnemyJungle', '$gameDuration' ] } },
+						damageSelfMitigatedPerSecAvg: { $avg: { $divide: [ '$damageSelfMitigated', '$gameDuration' ] } },
+						firstInhibitorParticipateAvg: { $avg: { $max: ['$firstInhibitorKill','$firstInhibitorAssist'] } },
+						goldEarnedPerSecAvg: { $avg: { $divide: [ '$goldEarned', '$gameDuration' ] } },
+						timeCCingOthersPerSecAvg: { $avg: { $divide: [ '$timeCCingOthers', '$gameDuration' ] } },
+						totalHealPerSecAvg: { $avg: { $divide: [ '$totalHeal', '$gameDuration' ] } },
+
+
+						winRateStdDev: { $stdDevPop: '$win' },
+						gameDurationStdDev: { $stdDevPop: '$gameDuration' },
+
+						firstBloodParticipateStdDev: { $stdDevPop: { $max: ['$firstBloodKill','$firstBloodAssist'] } },
+						visionScorePerSecStdDev: { $stdDevPop: { $divide: [ '$visionScore', '$gameDuration' ] } },
+						magicDamageDealtToChampionsPerSecStdDev: { $stdDevPop: { $divide: [ '$magicDamageDealtToChampions', '$gameDuration' ] } },
+						physicalDamageDealtToChampionsPerSecStdDev: { $stdDevPop: { $divide: [ '$physicalDamageDealtToChampions', '$gameDuration' ] } },
+						trueDamageDealtToChampionsPerSecStdDev: { $stdDevPop: { $divide: [ '$trueDamageDealtToChampions', '$gameDuration' ] } },
+						totalDamageDealtToChampionsPerSecStdDev: { $stdDevPop: { $divide: [ '$totalDamageDealtToChampions', '$gameDuration' ] } },
+						magicalDamageTakenPerSecStdDev: { $stdDevPop: { $divide: [ '$magicalDamageTaken', '$gameDuration' ] } },
+						physicalDamageTakenPerSecStdDev: { $stdDevPop: { $divide: [ '$physicalDamageTaken', '$gameDuration' ] } },
+						trueDamageTakenPerSecStdDev: { $stdDevPop: { $divide: [ '$trueDamageTaken', '$gameDuration' ] } },
+						totalDamageTakenPerSecStdDev: { $stdDevPop: { $divide: [ '$totalDamageTaken', '$gameDuration' ] } },
+						damageDealtToObjectivesStdDev: { $stdDevPop: '$damageDealtToObjectives' },
+						damageDealtToTurretsStdDev: { $stdDevPop: '$damageDealtToTurrets' },
+						killsPerSecStdDev: { $stdDevPop: { $divide: [ '$kills', '$gameDuration' ] } },
+						deathsPerSecStdDev: { $stdDevPop: { $divide: [ '$deaths', '$gameDuration' ] } },
+						assistsPerSecStdDev: { $stdDevPop: { $divide: [ '$assists', '$gameDuration' ] } },
+						wardsKilledPerSecStdDev: { $stdDevPop: { $divide: [ '$wardsKilled', '$gameDuration' ] } },
+						neutralMinionsKilledTeamJunglePerSecStdDev: { $stdDevPop: { $divide: [ '$neutralMinionsKilledTeamJungle', '$gameDuration' ] } },
+						neutralMinionsKilledEnemyJunglePerSecStdDev: { $stdDevPop: { $divide: [ '$neutralMinionsKilledEnemyJungle', '$gameDuration' ] } },
+						damageSelfMitigatedPerSecStdDev: { $stdDevPop: { $divide: [ '$damageSelfMitigated', '$gameDuration' ] } },
+						firstInhibitorParticipateStdDev: { $stdDevPop: { $max: ['$firstInhibitorKill','$firstInhibitorAssist'] } },
+						goldEarnedPerSecStdDev: { $stdDevPop: { $divide: [ '$goldEarned', '$gameDuration' ] } },
+						timeCCingOthersPerSecStdDev: { $stdDevPop: { $divide: [ '$timeCCingOthers', '$gameDuration' ] } },
+						totalHealPerSecStdDev: { $stdDevPop: { $divide: [ '$totalHeal', '$gameDuration' ] } },
 					}
-				}, {
-					$addFields: { championId: "$_id" }
 				}], (err, doc) => {
 					if (err) {
 						console.log(err)
 						reject()
 					} else {
-						console.log(doc)
-						console.log(doc.length)
+						this.stats = doc
 						resolve()
 					}
 				})
 			})
 		}
 
-		clearOldMatches()
-		.then(res => {
-			return getInitialPlayers()
-		})
-		.then(res => {
-			return collectMatches(res)
-		})
-		.then(res => {
-			return getStats()
+		console.log('refreshing data')
+		this.currentlyRefreshing = true
+
+		return new Promise((resolve, reject) => {
+			clearOldMatches()
+			.then(res => {
+				return getInitialPlayers()
+			})
+			.then(res => {
+				return collectMatches(res)
+			})
+			.then(res => {
+				this.currentlyRefreshing = false
+				resolve()
+				return getStats()
+			})
+			.catch(err => {
+				console.log(err)
+				this.currentlyRefreshing = false
+				reject(err)
+			})
 		})
 
 	}

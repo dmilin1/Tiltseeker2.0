@@ -150,7 +150,10 @@ var loadStyles = (t) => {
 			':hover': {
 				borderColor: theme('inputHighlight2', t, true),
 				backgroundColor: theme('inputHighlightBackground', t),
-			}
+			},
+			'::selection': {
+				backgroundColor: '#CCC',
+			},
 		},
 		searchButton: {
 			display: 'flex',

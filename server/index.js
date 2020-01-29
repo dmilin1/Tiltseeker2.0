@@ -29,6 +29,10 @@ startListening = () => {
 	    next();
 	});
 
+	app.get('/api/:region/stats', (req, res) => {
+		res.send(dataCollector.stats)
+	})
+
 	app.get('/api/:region/*', (req, res) => {
 		// Check if region is valid to prevent domain hacks
 		if (['na1', 'euw1', 'eun1',
@@ -58,6 +62,8 @@ startListening = () => {
 		// })
 	});
 
+
+
 	app.use(express.static(path.join(__dirname, '../build')))
 
 	app.get('*', (req, res) => {
@@ -74,4 +80,10 @@ startListening = () => {
 	);
 }
 
-startListening()
+dataCollector.refreshData()
+.then(() => {
+	startListening()
+})
+.catch((err) => {
+	console.log('failed initial stats refresh')
+})
