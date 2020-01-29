@@ -75,6 +75,18 @@ const FontSize = {
 			fontSize: 14,
 		},
 	},
+	mediumSmall: {
+		fontSize: 8,
+		'@media (min-width: 600px)': {
+			fontSize: 12,
+		},
+		'@media (min-width: 800px)': {
+			fontSize: 14,
+		},
+		'@media (min-width: 1000px)': {
+			fontSize: 16,
+		},
+	},
 	medium: {
 		fontSize: 12,
 		'@media (min-width: 600px)': {
@@ -188,6 +200,18 @@ const InputSize = {
 	},
 };
 
+const ItemSize = {
+	large: {
+		minWidth: '90%',
+		'@media (min-width: 1100px)': {
+			minWidth: '80%',
+		},
+		'@media (min-width: 1400px)': {
+			minWidth: '40%',
+		},
+	},
+};
+
 const theme = (key, type, invert=false) => {
 	if (!invert) {
 		return themes[key][type]
@@ -196,4 +220,4 @@ const theme = (key, type, invert=false) => {
 	}
 }
 
-export { theme, FontSize }
+export { theme, FontSize, ItemSize }
