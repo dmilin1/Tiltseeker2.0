@@ -53,6 +53,7 @@ startListening = () => {
 			res.send(response.data)
 		})
 		.catch((err) => {
+			console.log(err)
 			res.status(err.response.status).send(err.response.data)
 		})
 	  // res.send({
