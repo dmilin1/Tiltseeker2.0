@@ -248,7 +248,7 @@ class Tiltseek extends React.Component {
 		.then(res => {
 			this.incrementProgress(1)
 			currentGameVersion = res.data[0]
-			return axios.get(`http://ddragon.leagueoflegends.com/cdn/${currentGameVersion}/data/en_US/champion.json`)
+			return axios.get(`https://ddragon.leagueoflegends.com/cdn/${currentGameVersion}/data/en_US/champion.json`)
 		})
 		.then(res => {
 			this.incrementProgress(1)
@@ -505,7 +505,7 @@ class DataDisplay extends React.Component {
 					<img
 						className={css(styles.championIcon)}
 						src={
-							'http://ddragon.leagueoflegends.com/cdn/' +
+							'https://ddragon.leagueoflegends.com/cdn/' +
 							this.props.currentGameVersion + '/img/champion/' +
 							this.props.championData[`${player[0].championId}`].id +
 							'.png'
