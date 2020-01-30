@@ -80,7 +80,7 @@ startListening = () => {
 	);
 }
 
-dataCollector.refreshData()
+dataCollector.getStats()
 .then(() => {
 	startListening()
 })
