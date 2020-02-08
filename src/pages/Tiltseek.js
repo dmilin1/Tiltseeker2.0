@@ -314,6 +314,7 @@ class Tiltseek extends React.Component {
 				) : null }
 				{ this.state.stage == 'loaded' ? (
 					<DataDisplay
+						theme={this.props.theme}
 						summonerData={this.state.summonerData}
 						currentGame={this.state.currentGame}
 						championMasteries={this.state.championMasteries}
@@ -400,7 +401,7 @@ class DataDisplay extends React.Component {
 		return getZPercentile((val-avg)/std)
 	}
 
-	calcLosingStreak = (player) => {
+	calcLosingStreak = (player, numeric=false) => {
 		var streak = 0
 		var history = this.props.lossStreakHistories[player[1]]
 		var lastGameTime = Date.now()
@@ -418,38 +419,56 @@ class DataDisplay extends React.Component {
 		return streak
 	}
 
-	calcWinRate = (player) => {
+	calcWinRate = (player, numeric=false) => {
 		var i = player[1]
 		var rankedInfo = this.props.rankedInfo
 		if (rankedInfo[i]) {
 			var winRate = 100*rankedInfo[i].wins/(rankedInfo[i].wins+rankedInfo[i].losses)
+			if (numeric) {
+				return winRate/100
+			}
 			return `${winRate.toFixed(1)}% (${rankedInfo[i].wins}/${rankedInfo[i].wins+rankedInfo[i].losses})`
 		} else {
-			return 'unranked'
+			if (numeric) {
+				return null
+			}
+			return 'not ranked'
 		}
 	}
 
-	calcMasteryPoints = (player) => {
+	calcMasteryPoints = (player, numeric=false) => {
 		if (this.props.championMasteries[player[1]]) {
+			if (numeric) {
+				return this.props.championMasteries[player[1]].championPoints
+			}
 			return this.props.championMasteries[player[1]].championPoints.toLocaleString()
 		} else {
 			return 0
 		}
 	}
 
-	calcLastPlayed = (player) => {
+	calcLastPlayed = (player, numeric=false) => {
 		if (this.props.championMasteries[player[1]]) {
-			var timeSince = ((Date.now() - this.props.championMasteries[player[1]].lastPlayTime)/(24 * 60 * 60 *1000)).toFixed(0)
-			return `${timeSince} day${timeSince == 1 ? '' : 's'} ago`
+			var timeSince = ((Date.now() - this.props.championMasteries[player[1]].lastPlayTime)/(24 * 60 * 60 *1000))
+			if (numeric) {
+				return timeSince
+			}
+			return `${timeSince.toFixed(0)} day${timeSince == 1 ? '' : 's'} ago`
 		} else {
+			if (numeric) {
+				return null
+			}
 			return 'never'
 		}
 	}
 
-	calcAggression = (player) => {
+	calcAggression = (player, numeric=false) => {
 		var champId = player[0].championId
 		var typical = this.props.championStats[champId]
 		if (!this.props.championHistories[player[1]] || this.props.championHistories[player[1]].length < 10) {
+			if (numeric) {
+				return null
+			}
 			return 'not enough data'
 		}
 		var percentiles = []
@@ -468,14 +487,20 @@ class DataDisplay extends React.Component {
 				typical.totalDamageTakenPerSecStdDev,
 			))/2)
 		}
-		var percent = (100 * percentiles.reduce((a, b) => a + b) / percentiles.length).toFixed(0)
-		return `${percent}%${percentiles.length < 20 ? ' ?' : ''}`
+		var percent = (100 * percentiles.reduce((a, b) => a + b) / percentiles.length)
+		if (numeric) {
+			return percent/100
+		}
+		return `${percent.toFixed(0)}%${percentiles.length < 20 ? ' ?' : ''}`
 	}
 
-	calcWarding = (player) => {
+	calcWarding = (player, numeric=false) => {
 		var champId = player[0].championId
 		var typical = this.props.championStats[champId]
 		if (!this.props.championHistories[player[1]] || this.props.championHistories[player[1]].length < 10) {
+			if (numeric) {
+				return null
+			}
 			return 'not enough data'
 		}
 		var percentiles = []
@@ -490,12 +515,55 @@ class DataDisplay extends React.Component {
 				typical.visionScorePerSecStdDev,
 			))
 		}
-		var percent = (100 * percentiles.reduce((a, b) => a + b) / percentiles.length).toFixed(0)
-		return `${percent}%${percentiles.length < 20 ? ' ?' : ''}`
+		var percent = (100 * percentiles.reduce((a, b) => a + b) / percentiles.length)
+		if (numeric) {
+			return percent/100
+		}
+		return `${percent.toFixed(0)}%${percentiles.length < 20 ? ' ?' : ''}`
 	}
 
 	calcTiltScore = (player) => {
-		return 0
+		var tiltArr = []
+
+		var losingStreak = this.calcLosingStreak(player, true)
+		if (losingStreak !== null) {
+			tiltArr.push(1 - 1/(Math.pow(2,losingStreak)))
+		}
+
+		var winRate = this.calcWinRate(player, true)
+		if (winRate !== null) {
+			tiltArr.push(1 - winRate)
+		}
+
+		var masteryPoints = this.calcMasteryPoints(player, true)
+		if (masteryPoints !== null) {
+			tiltArr.push(1/(Math.pow(2,masteryPoints/7000)))
+		}
+
+		var lastPlayed = this.calcLastPlayed(player, true)
+		if (lastPlayed !== null) {
+			tiltArr.push(1 - 1/(Math.pow(2,lastPlayed/20)))
+		} else {
+			tiltArr.push(1)
+		}
+
+		var aggression = this.calcAggression(player, true)
+		if (aggression !== null) {
+			tiltArr.push(aggression)
+		}
+
+		var warding = this.calcWarding(player, true)
+		if (warding !== null) {
+			tiltArr.push(1 - warding)
+		}
+		console.log(tiltArr)
+
+		if (tiltArr.length >= 5) {
+			var tiltScore = 100 * tiltArr.reduce((prev, curr) => prev + curr) / tiltArr.length
+			return `${tiltScore.toFixed(1)}%`
+		} else {
+			return 'not enough data'
+		}
 	}
 
 	makeTeam = (team) => {
@@ -521,8 +589,8 @@ class DataDisplay extends React.Component {
 					this.calcAggression,
 					this.calcWarding,
 					this.calcTiltScore,
-				].map(data => (
-					<div className={css(styles.field)}>
+				].map((data, i) => (
+					<div className={css(styles.field)} style={{ backgroundColor: i % 2 == 0 ? theme('primary2', this.props.theme) : null }}>
 						{data(player)}
 					</div>
 				))}
@@ -537,20 +605,73 @@ class DataDisplay extends React.Component {
 			'Aggression',
 			'Warding',
 			'Tilt Score'
-		].map(title => (
-			<div className={css(styles.fieldTitle)}>
+		].map((title, i) => (
+			<div className={css(styles.fieldTitle)} style={{ backgroundColor: i % 2 == 0 ? theme('primary2', this.props.theme) : null }}>
 				{title}
 			</div>
 		))
 
+		var dmgMagic = 0
+		var dmgPhysical = 0
+		var dmgTrue = 0
+		var dmgTotal = 0
+
+		team.map(player => {
+			dmgMagic += this.props.championStats[player[0].championId].magicDamageDealtToChampionPerSecsAvg
+			dmgPhysical += this.props.championStats[player[0].championId].physicalDamageDealtToChampionsPerSecAvg
+			dmgTrue += this.props.championStats[player[0].championId].trueDamageDealtToChampionsPerSecAvg
+			dmgTotal += this.props.championStats[player[0].championId].magicDamageDealtToChampionPerSecsAvg
+			dmgTotal += this.props.championStats[player[0].championId].physicalDamageDealtToChampionsPerSecAvg
+			dmgTotal += this.props.championStats[player[0].championId].trueDamageDealtToChampionsPerSecAvg
+		})
+
 		return (
 			<div className={css(styles.teamContainer)}>
 				<div style={{ flex: 1 }}/>
-				<div className={css(styles.fieldsContainer)}>
-					<div style={{ width: 105 }}/>
-					{titles}
+				<div className={css(styles.teamWrapper)}>
+					<div
+						className={css(styles.teamSide)}
+						style={{
+							color: team.length > 0 ? (team[0][0].teamId == 100 ? theme('accent3', this.props.theme) : theme('accent4', this.props.theme)) : '',
+						}}
+					>
+						{team.length > 0 ? (team[0][0].teamId == 100 ? 'BLUE SIDE' : 'RED SIDE') : ''}
+					</div>
+					<div className={css(styles.damageContainer)}>
+						<div
+							className={css(styles.damageBarComponent)}
+							style={{
+								flex: dmgMagic/dmgTotal,
+								backgroundColor: theme('accent3', this.props.theme),
+							}}
+						>
+							{`${(100*dmgMagic/dmgTotal).toFixed(1)}% AP`}
+						</div>
+						<div
+							className={css(styles.damageBarComponent)}
+							style={{
+								flex: dmgPhysical/dmgTotal,
+								backgroundColor: theme('accent4', this.props.theme),
+							}}
+						>
+							{`${(100*dmgPhysical/dmgTotal).toFixed(1)}% AD`}
+						</div>
+						<div
+							className={css(styles.damageBarComponent)}
+							style={{
+								flex: dmgTrue/dmgTotal,
+								backgroundColor: '#fbfbfb',
+							}}
+						>
+							{`${(100*dmgTrue/dmgTotal).toFixed(1)}%`}
+						</div>
+					</div>
+					<div className={css(styles.fieldsContainer)}>
+						<div style={{ width: 105 }}/>
+						{titles}
+					</div>
+					{playerDisplay}
 				</div>
-				{playerDisplay}
 				<div style={{ flex: 2 }}/>
 			</div>
 		)
@@ -644,21 +765,33 @@ var loadStyles = (t) => {
 			display: 'flex',
 			alignSelf: 'stretch',
 			flex: 1,
-			backgroundColor: 'blue',
 			flexWrap: 'wrap',
 			justifyContent: 'space-evenly',
 		},
 		teamContainer: {
-			backgroundColor: 'green',
 			display: 'flex',
 			flexDirection: 'column',
 			...ItemSize.large,
-			transition: 'background-color 0.25s, color 0.25s',
 			justifyContent: 'center',
+		},
+		teamWrapper: {
+			borderStyle: 'solid',
+			borderWidth: 5,
+			borderRadius: 10,
+			borderColor: theme('inputHighlight', t, true),
+			backgroundColor: theme('primary1', t),
+			transition: 'background-color 0.25s, border-color 0.25s, color 0.25s',
+			display: 'flex',
+			flexDirection: 'column',
+			marginTop: 25,
 		},
 		playerDisplayContainer: {
 			display: 'flex',
-			height: 85,
+			height: '8vh',
+			borderColor: theme('inputHighlight', t, true),
+			transition: 'background-color 0.25s, border-color 0.25s, color 0.25s',
+			borderStyle: 'solid',
+			borderWidth: '2px 0px 0px 0px',
 		},
 		championIconContainer: {
 			display: 'flex',
@@ -667,37 +800,69 @@ var loadStyles = (t) => {
 			justifyContent: 'center',
 			wordBreak: 'break-all',
 			textAlign: 'center',
-			height: 85,
+			height: '8vh',
 			width: 105,
+			...FontSize.small,
+			color: theme('text1', t),
+			transition: 'background-color 0.25s, border-color 0.25s, color 0.25s',
 		},
 		championIcon: {
-			height: 50,
-			width: 50,
+			height: '5vh',
+			width: '5vh',
 			borderRadius: 5,
-			...FontSize.small,
 		},
 		fieldsContainer: {
 			display: 'flex',
 			height: 50,
+			borderColor: theme('inputHighlight', t, true),
+			transition: 'background-color 0.25s, border-color 0.25s, color 0.25s',
+			borderStyle: 'solid',
+			borderWidth: '2px 0px 0px 0px',
 		},
 		fieldTitle: {
 			display: 'flex',
 			flex: 1,
-			backgroundColor: 'purple',
 			alignItems: 'center',
 			justifyContent: 'center',
 			textAlign: 'center',
 			wordBreak: 'break-word',
+			color: theme('text1', t),
+			transition: 'background-color 0.25s, border-color 0.25s, color 0.25s',
+			marginTop: 0.5,
 		},
 		field: {
 			display: 'flex',
 			flex: 1,
 			padding: '0px 8px',
-			backgroundColor: 'pink',
 			alignItems: 'center',
 			justifyContent: 'center',
 			textAlign: 'center',
 			wordBreak: 'break-word',
+			color: theme('text1', t),
+			transition: 'background-color 0.25s, border-color 0.25s, color 0.25s',
+			marginTop: 0.5,
+		},
+		damageContainer: {
+			height: 18,
+			display: 'flex',
+			transition: 'background-color 0.25s, border-color 0.25s, color 0.25s',
+			margin: '0px 20px 20px 20px',
+			borderRadius: 10,
+			overflow: 'hidden',
+		},
+		damageBarComponent: {
+			display: 'flex',
+			alignItems: 'center',
+			justifyContent: 'center',
+			paddingBottom: 2,
+		},
+		teamSide: {
+			...FontSize.extraLarge,
+			fontFamily: 'Alegreya Sans',
+			fontWeight: 600,
+			textAlign: 'center',
+			marginTop: 10,
+			marginBottom: 10,
 		}
 	});
 }
