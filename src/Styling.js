@@ -8,6 +8,10 @@ const themes = {
 		light: '#DDD',
 		dark: '#333',
 	},
+	primary2: {
+		light: '#D4D4D4',
+		dark: '#3B3B3B',
+	},
 	accent1: {
 		light: '#BBB',
 		dark: '#555',
@@ -19,6 +23,10 @@ const themes = {
 	accent3: {
 		light: '#2898fa',
 		dark: '#2898fa',
+	},
+	accent4: {
+		light: '#fa3232',
+		dark: '#fa3232',
 	},
 	inputHighlight: {
 		light: '#C8C8C8',
@@ -72,7 +80,7 @@ const FontSize = {
 			fontSize: 12,
 		},
 		'@media (min-width: 1000px)': {
-			fontSize: 14,
+			fontSize: 13,
 		},
 	},
 	mediumSmall: {
@@ -121,6 +129,18 @@ const FontSize = {
 		},
 		'@media (min-width: 1000px)': {
 			fontSize: 27,
+		},
+	},
+	extraLarge: {
+		fontSize: 22,
+		'@media (min-width: 600px)': {
+			fontSize: 25,
+		},
+		'@media (min-width: 800px)': {
+			fontSize: 29,
+		},
+		'@media (min-width: 1000px)': {
+			fontSize: 32,
 		},
 	},
 	logo: {
@@ -206,8 +226,13 @@ const ItemSize = {
 		'@media (min-width: 1100px)': {
 			minWidth: '80%',
 		},
-		'@media (min-width: 1400px)': {
+		'@media (min-width: 1350px)': {
+			minWidth: '45%',
+			maxWidth: '45%',
+		},
+		'@media (min-width: 1550px)': {
 			minWidth: '40%',
+			maxWidth: '40%',
 		},
 	},
 };
