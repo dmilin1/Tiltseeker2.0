@@ -33,7 +33,6 @@ class About extends React.Component {
 					</div>
 					<br/>
 					<br/>
-					<br/>
 					<h4>{`The Story:`}</h4>
 					{`One day, it occured to me that the materials I was studing in school could be applied to the game I love in order to create an advantage. The next few days, I spent my spare time putting together a simple Python script that would find indicators about my opponents that I could use to win. For example, I quickly discovered that losing streaks were a good indicator of which lane to camp. A few weeks later, I mentioned my program on the /r/LeagueOfLegends subreddit and received a lot of encouragement to build it into a usable website!`}
 					<br/>
