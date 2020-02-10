@@ -66,11 +66,17 @@ startListening = () => {
 
 	app.use(express.static(path.join(__dirname, '../build')))
 
+	app.get('/verifier.txt', (req, res) => {
+	  res.send('d5d4875cef85fe27a1ca78e2b894ccd1b71a67147171526e4551eae74df0ba4b\n')
+	});
+
 	app.get('*', (req, res) => {
+		console.log(req)
 	  res.sendFile(path.join(__dirname+'/../build/index.html'))
 	});
 
 	app.get('*', (req, res) => {
+		console.log(req)
 		res.sendFile(path.join(__dirname+'/../public/index.html'))
 	})
 
