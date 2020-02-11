@@ -3,6 +3,7 @@ import { BrowserRouter, Route } from "react-router-dom";
 import { StyleSheet, css } from 'aphrodite';
 import cookie from 'react-cookies'
 
+import { regions } from './constants.js'
 
 import { library } from '@fortawesome/fontawesome-svg-core'
 // import { fab } from '@fortawesome/free-brands-svg-icons'
@@ -11,11 +12,12 @@ import { faHome, faToggleOn, faToggleOff } from '@fortawesome/free-solid-svg-ico
 
 import Navbar from './components/Navbar.js'
 import Home from './pages/Home.js'
+import About from './pages/About.js'
+import DesktopApp from './pages/DesktopApp.js'
 import Tiltseek from './pages/Tiltseek.js'
 
 
 library.add(faHome, faToggleOn, faToggleOff)
-
 
 
 
@@ -25,52 +27,7 @@ class App extends React.Component {
 		super(props)
 		this.state = {
 			theme: cookie.load('theme') || 'dark',
-			regions: [
-				{
-					name: 'NA',
-					code: 'na1',
-				},
-				{
-					name: 'EUW',
-					code: 'euw1',
-				},
-				{
-					name: 'EUNE',
-					code: 'eun1',
-				},
-				{
-					name: 'BR',
-					code: 'br1',
-				},
-				{
-					name: 'TR',
-					code: 'tr1',
-				},
-				{
-					name: 'RU',
-					code: 'ru',
-				},
-				{
-					name: 'LAN',
-					code: 'la1',
-				},
-				{
-					name: 'LAS',
-					code: 'la2',
-				},
-				{
-					name: 'OCE',
-					code: 'oc1',
-				},
-				{
-					name: 'KR',
-					code: 'kr',
-				},
-				{
-					name: 'JP',
-					code: 'jp1',
-				},
-			],
+			regions: regions,
 			selectedRegion: cookie.load('region') || {
 				name: 'NA',
 				code: 'na1',
@@ -124,10 +81,18 @@ class App extends React.Component {
 						<Tiltseek
 							theme={this.state.theme}
 							regions={this.state.regions}
-
 						/>
 					)}} />
-					<Route path="/about/" component={null} />
+					<Route path="/about/" render={(props) => {return (
+						<About
+							theme={this.state.theme}
+						/>
+					)}} />
+					<Route path="/desktopapp/" render={(props) => {return (
+						<DesktopApp
+							theme={this.state.theme}
+						/>
+					)}} />
 		    </div>
 			</BrowserRouter>
 	  );

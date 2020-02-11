@@ -23,7 +23,7 @@ class Navbar extends React.Component {
 				/>
 				<Button
 					text='Desktop App'
-					url='/app'
+					url='/desktopapp'
 					{...this.props}
 				/>
 				<Button
