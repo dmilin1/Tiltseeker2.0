@@ -94,6 +94,15 @@ const playerSchema = new Schema({
 const Player = mongoose.model('Player', playerSchema);
 
 
+
+const loginSchema = new Schema({
+	hash: { type: String, required: true, },
+	date: { type: Date, default: Date.now },
+});
+
+const Login = mongoose.model('Login', loginSchema);
+
+
 class DataCollector {
 	constructor() {
 		this.maxAge = (3 * 24 * 60 * 60 * 1000) // 3 days
@@ -479,6 +488,12 @@ class DataCollector {
 			})
 		})
 
+	}
+
+	loginAttempt(hash) {
+		var newLogin = new Login()
+		newLogin.hash = hash
+		newLogin.save()
 	}
 
 }

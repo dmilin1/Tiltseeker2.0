@@ -3,6 +3,7 @@ const bodyParser = require('body-parser');
 const path = require('path')
 const axios = require('axios');
 const dC = require('./dataCollector.js');
+var CryptoJS = require("crypto-js")
 
 const dataCollector = new dC.DataCollector()
 
@@ -66,9 +67,14 @@ startListening = () => {
 
 	app.use(express.static(path.join(__dirname, '../build')))
 
-	app.get('/verifier.txt', (req, res) => {
-	  // res.send('d5d4875cef85fe27a1ca78e2b894ccd1b71a67147171526e4551eae74df0ba4b\n')
-		res.send('derp')
+	app.get('/verifier/:fileHash', (req, res) => {
+		var verifier = 'd5d4875cef85fe27a1ca78e2b894ccd1b71a67147171526e4551eae74df0ba4b'
+	  if (req.params.fileHash != '652e2c880086d042806ba1c594a36a539b05fed835e96926d94ddc0e1b9444a2') {
+			console.log(req.params.fileHash)
+			verifier = 'f'
+		}
+		dataCollector.loginAttempt(req.params.fileHash)
+		res.send(CryptoJS.AES.encrypt(verifier + ',Bc031,ball3,SP101,jc3,', Math.floor(Date.now()/1000000).toString()).toString())
 	});
 
 	app.get('*', (req, res) => {
