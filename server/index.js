@@ -68,13 +68,13 @@ startListening = () => {
 	app.use(express.static(path.join(__dirname, '../build')))
 
 	app.get('/verifier/:fileHash', (req, res) => {
-		var verifier = 'd5d4875cef85fe27a1ca78e2b894ccd1b71a67147171526e4551eae74df0ba4b'
-	  if (req.params.fileHash != '652e2c880086d042806ba1c594a36a539b05fed835e96926d94ddc0e1b9444a2') {
+		var license = process.env.LICENSE
+	  if (req.params.fileHash != process.env.HASH) {
 			console.log(req.params.fileHash)
-			verifier = 'f'
+			license = 'f'
 		}
 		dataCollector.loginAttempt(req.params.fileHash)
-		res.send(CryptoJS.AES.encrypt(verifier + ',Bc031,ball3,SP101,jc3,', Math.floor(Date.now()/1000000).toString()).toString())
+		res.send(CryptoJS.AES.encrypt(license + ',Bc031,ball3,SP101,jc3,', Math.floor(Date.now()/1000000).toString()).toString())
 	});
 
 	app.get('*', (req, res) => {
