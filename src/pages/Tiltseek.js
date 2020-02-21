@@ -352,15 +352,11 @@ class DataDisplay extends React.Component {
 
 	constructor(props) {
 		super(props)
-		// summonerData
-		// currentGame
-		// championMasteries
-		// rankedInfo
-		// championHistories
-		// lossStreakHistories
-		// currentGameVersion
-		// championData
-		// championStats
+		this.state = {
+			mouseX: 0,
+			mouseY: 0,
+			popupText: null,
+		}
 	}
 
 
@@ -427,7 +423,7 @@ class DataDisplay extends React.Component {
 			if (numeric) {
 				return winRate/100
 			}
-			return `${winRate.toFixed(1)}% (${rankedInfo[i].wins}/${rankedInfo[i].wins+rankedInfo[i].losses})`
+			return `${winRate.toFixed(1)}% (${rankedInfo[i].wins}W/${rankedInfo[i].losses}L)`
 		} else {
 			if (numeric) {
 				return null
@@ -556,7 +552,6 @@ class DataDisplay extends React.Component {
 		if (warding !== null) {
 			tiltArr.push(1 - warding)
 		}
-		console.log(tiltArr)
 
 		if (tiltArr.length >= 5) {
 			var tiltScore = 100 * tiltArr.reduce((prev, curr) => prev + curr) / tiltArr.length
@@ -582,16 +577,42 @@ class DataDisplay extends React.Component {
 					{player[0].summonerName}
 				</div>
 				{[
-					this.calcLosingStreak,
-					this.calcWinRate,
-					this.calcMasteryPoints,
-					this.calcLastPlayed,
-					this.calcAggression,
-					this.calcWarding,
-					this.calcTiltScore,
+					[
+						this.calcLosingStreak,
+						'Number of games a player has lost consecutively with no greater than a 12 hour break between games.'
+					],
+					[
+						this.calcWinRate,
+						'Winrate in ranked games played this season.'
+					],
+					[
+						this.calcMasteryPoints,
+						'Mastery points on the currently played champion.'
+					],
+					[
+						this.calcLastPlayed,
+						'The last time the player used their current champion.'
+					],
+					[
+						this.calcAggression,
+						'A percentile representing how aggressive a player is on their current champion compared to other players on the same champion. A low aggression Darius may still be somewhat aggressive and a highly aggressive Soraka may still be somewhat passive.'
+					],
+					[
+						this.calcWarding,
+						'A percentile representing how effectively a player wards on their current champion compared to other players on the same champion. A low warding Janna may still place more wards than the average player, because Jannas tend to ward a lot.'
+					],
+					[
+						this.calcTiltScore,
+						'An aggregate of all data collected into a score representing the likely benefit of camping/focusing this player.'
+					],
 				].map((data, i) => (
-					<div className={css(styles.field)} style={{ backgroundColor: i % 2 == 0 ? theme('primary2', this.props.theme) : null }}>
-						{data(player)}
+					<div
+						className={css(styles.field)}
+						style={{ backgroundColor: i % 2 == 0 ? theme('primary2', this.props.theme) : null }}
+						onMouseEnter={(e) => this.setState({ popupText: data[1] })}
+						onMouseLeave={() => this.setState({ popupText: null })}
+					>
+						{data[0](player)}
 					</div>
 				))}
 			</div>
@@ -626,7 +647,24 @@ class DataDisplay extends React.Component {
 		})
 
 		return (
-			<div className={css(styles.teamContainer)}>
+			<div
+				className={css(styles.teamContainer)}
+				onMouseMove={e => {
+					this.setState({ mouseX: e.pageX + 3, mouseY: e.pageY + 20 })
+				}}
+			>
+				<div
+					className={css(styles.infoBoxContainer)}
+					style={{
+						top: this.state.mouseY,
+						left: this.state.mouseX,
+						display: this.state.popupText ? 'flex' : 'none'
+					}}
+				>
+					<div className={css(styles.infoBox)}>
+						{this.state.popupText}
+					</div>
+				</div>
 				<div style={{ flex: 1 }}/>
 				<div className={css(styles.teamWrapper)}>
 					<div
@@ -863,7 +901,27 @@ var loadStyles = (t) => {
 			textAlign: 'center',
 			marginTop: 10,
 			marginBottom: 10,
-		}
+		},
+		infoBoxContainer: {
+			position: 'absolute',
+			width: 250,
+			marginLeft: -125,
+			alignItems: 'center',
+			justifyContent: 'center',
+			boxShadow: '0px 0px 3px ' + theme('inputHighlight', t, true),
+			borderRadius: 10,
+		},
+		infoBox: {
+			backgroundColor: theme('bg1', t),
+			maxWidth: 250,
+			borderRadius: 10,
+			padding: 10,
+			borderColor: theme('inputHighlight', t, true),
+			transition: 'background-color 0.25s, border-color 0.25s, color 0.25s',
+			borderStyle: 'solid',
+			borderWidth: 2,
+			color: theme('text1', t),
+		},
 	});
 }
 

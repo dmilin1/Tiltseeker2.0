@@ -106,7 +106,7 @@ const Login = mongoose.model('Login', loginSchema);
 class DataCollector {
 	constructor() {
 		this.maxAge = (3 * 24 * 60 * 60 * 1000) // 3 days
-		this.maxMatches = 10000
+		this.maxMatches = 40000
 
 		this.stats = null
 
