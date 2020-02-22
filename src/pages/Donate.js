@@ -29,7 +29,7 @@ class Donate extends React.Component {
 
 	makeDonation(amt) {
 		stripe.redirectToCheckout({
-			items: [{sku: 'sku_GmMuGMGc8jTd4g', quantity: parseInt(amt)}],
+			items: [{sku: 'sku_GmMK7lAi6vfMnN', quantity: parseInt(amt)}],
 			successUrl: window.location.protocol + '//tiltseeker.com/donate?donated=true',
 			cancelUrl: window.location.protocol + '//tiltseeker.com/donate',
 		})
