@@ -296,10 +296,9 @@ class Tiltseek extends React.Component {
 	}
 
 	render() {
-		// console.log(this.state.progress)
 		loadStyles(this.props.theme)
 		return (
-			<div className={css(styles.container)}>
+			<div className={!this.props.desktop ? css(styles.container) : css(styles.container, styles.containerDesktop)}>
 				{ this.state.stage == 'loading' ? (
 					<>
 						<div className={css(styles.loadingText)}>
@@ -748,6 +747,9 @@ var loadStyles = (t) => {
 			flex: 1,
 			alignItems: 'center',
 	  },
+		containerDesktop: {
+			backgroundColor: 'rgba(0,0,0,0)',
+		},
 		loadingText: {
 			color: theme('text1', t),
 			textAlign: 'center',

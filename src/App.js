@@ -61,13 +61,17 @@ class App extends React.Component {
 	}
 
 	render() {
+		var params = new URLSearchParams(window.location.href)
+		var desktop = params.get('desktop')
 		return (
 			<BrowserRouter>
 				<div className={css(styles.flex)}>
-					<Navbar
-						theme={this.state.theme}
-						setTheme={this.setTheme}
-					/>
+					{!desktop ? (
+						<Navbar
+							theme={this.state.theme}
+							setTheme={this.setTheme}
+						/>
+					) : null}
 					<Route path="/" exact render={(props) => {return (
 						<Home
 							theme={this.state.theme}
@@ -82,6 +86,7 @@ class App extends React.Component {
 						<Tiltseek
 							theme={this.state.theme}
 							regions={this.state.regions}
+							desktop={desktop}
 						/>
 					)}} />
 					<Route path="/about/" render={(props) => {return (
