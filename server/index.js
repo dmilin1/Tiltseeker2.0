@@ -95,9 +95,11 @@ startListening = () => {
 	);
 }
 
+
+startListening()
 dataCollector.getStats()
 .then(() => {
-	startListening()
+	
 })
 .catch((err) => {
 	console.log('failed initial stats refresh')
