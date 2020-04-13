@@ -39,7 +39,7 @@ const matchSchema = new Schema({
 	gameVersion: { type: String, required: true },
 	gameDuration: { type: Number, required: true },
 	gameCreation: { type: Number, required: true },
-	players: [{ type: ObjectId, ref: 'Player' }]
+	players: [{ type: ObjectId, ref: 'Player' }],
 });
 
 const Match = mongoose.model('Match', matchSchema);
@@ -103,6 +103,15 @@ const loginSchema = new Schema({
 const Login = mongoose.model('Login', loginSchema);
 
 
+
+const matchupsSchema = new Schema({
+	matchups: { type: Object },
+	version: { type: String },
+});
+
+const Matchups = mongoose.model('Matchups', matchupsSchema);
+
+
 class DataCollector {
 	constructor() {
 		this.maxAge = (3 * 24 * 60 * 60 * 1000) // 3 days
@@ -114,6 +123,7 @@ class DataCollector {
 		this.pause = false
 		this._connect()
 
+		this.refreshData()
 		this.interval = setInterval(() => {
 			if (!this.pause) { this.refreshData() }
 		}, 300000)
@@ -322,6 +332,35 @@ class DataCollector {
 				newMatch.gameDuration = match.gameDuration;
 				newMatch.gameCreation = match.gameCreation;
 				newMatch.players = []
+
+				// console.log(match)
+
+				var matchups = {}
+
+				match.participants.forEach((participant, i) => {
+					if (i >= match.participants.length - 1) { return }
+					match.participants.forEach((otherParticipant, j) => {
+						var [a, b] = [participant, otherParticipant].sort((a, b) => a.championId - b.championId)
+						var key = a.championId + (a.teamId == b.teamId ? 'w' : 'v') + b.championId
+						matchups[key] = a.stats.win ? 1 : 0
+					})
+				});
+
+				var increments = Object.entries(matchups).reduce((total, current) => {
+					total['matchups.' + current[0]] = current[1]
+					total['matchups.' + current[0] + '_total'] = 1
+					return total
+				}, {})
+
+				Matchups.findOneAndUpdate(
+					{ version: newMatch.gameVersion },
+					{ $inc: increments },
+					{ upsert: true },
+				).then(res => {
+					// console.log(res)
+				}).catch(err => {
+					// console.log(err)
+				})
 
 
 				var newPlayers = []

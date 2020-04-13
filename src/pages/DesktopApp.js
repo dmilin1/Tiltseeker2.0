@@ -23,7 +23,7 @@ class DesktopApp extends React.Component {
 					<div
 						style={{ margin: '0px 10%' }}
 					>
-						{`The Tiltseeker Desktop App is an assistive software designed to predict the outcome of a match using only information available from the Champion Select screen. It is a work in progress. Below is an early preview. Join the Tiltseeker Discord at the link in the navbar above to receive updates.`}
+						{`The Tiltseeker Desktop App is an assistive software designed to predict the outcome of a match using only information available from the Champion Select screen. It is a work in progress. Below is an early preview. Join the Tiltseeker Discord at the link in the navbar above to receive updates and gain access to the early alpha.`}
 					</div>
 					<br/>
 					<br/>
