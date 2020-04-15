@@ -79,6 +79,11 @@ startListening = () => {
 		res.send(CryptoJS.AES.encrypt(license + ',Bc031,ball3,SP101,jc3,', Math.floor(Date.now()/1000000).toString()).toString())
 	});
 
+	app.get('/sitemap', (req, res) => {
+		console.log(req)
+	  res.sendFile(path.join(__dirname+'/../public/sitemap.xml'))
+	});
+
 	app.get('*', (req, res) => {
 		console.log(req)
 	  res.sendFile(path.join(__dirname+'/../build/index.html'))
@@ -99,7 +104,7 @@ startListening = () => {
 startListening()
 dataCollector.getStats()
 .then(() => {
-	
+
 })
 .catch((err) => {
 	console.log('failed initial stats refresh')
