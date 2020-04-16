@@ -132,7 +132,7 @@ class Tiltseek extends React.Component {
 				rankedLookups.push(
 					axios.get('/lol/league/v4/entries/by-summoner/' + participant.summonerId)
 					.then((res) => {
-						rankedInfo[i] = res.data[0]
+						rankedInfo[i] = res.data
 					}).
 					catch((err) => {
 						console.log(err)
@@ -416,13 +416,19 @@ class DataDisplay extends React.Component {
 
 	calcWinRate = (player, numeric=false) => {
 		var i = player[1]
-		var rankedInfo = this.props.rankedInfo
-		if (rankedInfo[i]) {
-			var winRate = 100*rankedInfo[i].wins/(rankedInfo[i].wins+rankedInfo[i].losses)
+		var rankedInfo = this.props.rankedInfo[i]
+		var wins = rankedInfo.reduce((total, current) => {
+			return total += current.wins
+		}, 0)
+		var losses = rankedInfo.reduce((total, current) => {
+			return total += current.losses
+		}, 0)
+		if (wins != 0 || losses != 0) {
+			var winRate = 100*wins/(wins+losses)
 			if (numeric) {
 				return winRate/100
 			}
-			return `${winRate.toFixed(1)}% (${rankedInfo[i].wins}W/${rankedInfo[i].losses}L)`
+			return `${winRate.toFixed(1)}% (${wins}W/${losses}L)`
 		} else {
 			if (numeric) {
 				return null
