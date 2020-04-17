@@ -261,7 +261,7 @@ class Tiltseek extends React.Component {
 		})
 		.then(res => {
 			this.incrementProgress(1)
-			for (var champ of res.data) {
+			for (var champ of res.data.champStats) {
 				championStats[champ._id] = champ
 			}
 			console.log(championStats)

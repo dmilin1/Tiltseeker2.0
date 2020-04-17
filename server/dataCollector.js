@@ -105,9 +105,12 @@ const Login = mongoose.model('Login', loginSchema);
 
 
 const matchupsSchema = new Schema({
-	matchups: { type: Object },
-	version: { type: String },
-});
+		matchups: { type: Object },
+		version: { type: String },
+	}, {
+		timestamps: true
+	}
+);
 
 const Matchups = mongoose.model('Matchups', matchupsSchema);
 
@@ -237,13 +240,23 @@ class DataCollector {
 					timeCCingOthersPerSecStdDev: { $stdDevPop: { $divide: [ '$timeCCingOthers', '$gameDuration' ] } },
 					totalHealPerSecStdDev: { $stdDevPop: { $divide: [ '$totalHeal', '$gameDuration' ] } },
 				}
-			}], (err, doc) => {
+			}], (err, champStats) => {
 				if (err) {
 					console.log(err)
 					reject()
 				} else {
-					this.stats = doc
-					resolve()
+					Matchups.findOne({}).sort('-createdAt').exec((err, matchups) => {
+						if (err) {
+							console.log(err)
+							reject()
+						} else {
+							this.stats = {
+								champStats: champStats,
+								matchups: matchups,
+							}
+							resolve()
+						}
+					})
 				}
 			})
 		})
