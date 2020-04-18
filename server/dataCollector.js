@@ -245,11 +245,19 @@ class DataCollector {
 					console.log(err)
 					reject()
 				} else {
-					Matchups.findOne({}).sort('-createdAt').exec((err, matchups) => {
+					Matchups.find({ updatedAt: { $gt: new Date() - 1000 * 60 * 60 * 24 * 14 }}, (err, matchupFiles) => {
 						if (err) {
 							console.log(err)
 							reject()
 						} else {
+							var champStats = {}
+							for (var matchups of matchupFiles) {
+								for (var arr of Object.entries(matchups.matchups)) {
+									var matchup = arr[0]
+									var score = arr[1]
+									champStats[matchup] = champStats[matchup] ? champStats[matchup] + score : score
+								}
+							}
 							this.stats = {
 								champStats: champStats,
 								matchups: matchups,
