@@ -250,17 +250,17 @@ class DataCollector {
 							console.log(err)
 							reject()
 						} else {
-							var champStats = {}
+							var fullMatchups = {}
 							for (var matchups of matchupFiles) {
 								for (var arr of Object.entries(matchups.matchups)) {
 									var matchup = arr[0]
 									var score = arr[1]
-									champStats[matchup] = champStats[matchup] ? champStats[matchup] + score : score
+									fullMatchups[matchup] = fullMatchups[matchup] ? fullMatchups[matchup] + score : score
 								}
 							}
 							this.stats = {
 								champStats: champStats,
-								matchups: matchups,
+								matchups: fullMatchups,
 							}
 							resolve()
 						}
