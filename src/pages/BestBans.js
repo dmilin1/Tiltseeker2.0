@@ -92,7 +92,7 @@ class BestBans extends React.Component {
 								var data = arr[1]
 								return (
 									<div className={css(styles.pictureContainer)}>
-										<img className={css(styles.picture)} src={`http://ddragon.leagueoflegends.com/cdn/img/champion/loading/${this.state.championData[champId].id}_0.jpg`}/>
+										<img className={css(styles.picture)} src={`https://ddragon.leagueoflegends.com/cdn/img/champion/loading/${this.state.championData[champId].id}_0.jpg`}/>
 										<div key={champId}>
 											<div style={{ fontWeight: 600, fontSize: 17, }}>
 												{`
