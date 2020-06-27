@@ -46,13 +46,13 @@ class About extends React.Component {
 					<br/>
 					<br/>
 					<br/>
-					<a href="https://github.com/dmilin1" target="_blank">GitHub</a>
+					<a href="https://github.com/dmilin1" target="_blank" rel="noopener noreferrer">GitHub</a>
 					<br/>
 					<br/>
-					<a href="https://www.linkedin.com/in/dimitrie-milinovich-359b1215b/" target="_blank">LinkedIn</a>
+					<a href="https://www.linkedin.com/in/dimitrie-milinovich-359b1215b/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
 					<br/>
 					<br/>
-					<a href="mailto:contact@tiltseeker.com" target="_blank">Email</a>
+					<a href="mailto:contact@tiltseeker.com" target="_blank" rel="noopener noreferrer">Email</a>
 					<br/>
 					<br/>
 					{`League NA: dmilin (add me and we can duo!)`}

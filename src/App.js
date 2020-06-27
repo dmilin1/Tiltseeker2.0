@@ -12,6 +12,7 @@ import { faHome, faToggleOn, faToggleOff } from '@fortawesome/free-solid-svg-ico
 
 import Navbar from './components/Navbar.js'
 import Home from './pages/Home.js'
+import BestBans from './pages/BestBans.js'
 import About from './pages/About.js'
 import Donate from './pages/Donate.js'
 import DesktopApp from './pages/DesktopApp.js'
@@ -101,6 +102,11 @@ class App extends React.Component {
 					)}} />
 					<Route path="/donate/" render={(props) => {return (
 						<Donate
+							theme={this.state.theme}
+						/>
+					)}} />
+					<Route path="/bestbans/" render={(props) => {return (
+						<BestBans
 							theme={this.state.theme}
 						/>
 					)}} />

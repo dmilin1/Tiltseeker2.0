@@ -22,6 +22,11 @@ class Navbar extends React.Component {
 					{...this.props}
 				/>
 				<Button
+					text='Best Bans'
+					url='/bestbans'
+					{...this.props}
+				/>
+				<Button
 					text='Desktop App'
 					url='/desktopapp'
 					{...this.props}
