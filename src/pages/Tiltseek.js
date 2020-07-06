@@ -167,7 +167,7 @@ class Tiltseek extends React.Component {
 				if (player === undefined) {
 					fullHistoryLookups.push(undefined)
 				} else {
-					for (var match of player.data.matches) {
+					for (var match of player.data.matches.filter(match => match.platformId.toLowerCase() === this.state.region.toLowerCase())) {
 						matchSet.push(new Promise((resolve, reject) => {
 							// fix to load matches that were played in different regions
 							axios.get(
