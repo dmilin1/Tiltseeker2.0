@@ -33,24 +33,28 @@ class CompChecker extends React.Component {
 	}
 
 	async componentWillMount() {
-		var currentGameVersion = (await axios.get('https://ddragon.leagueoflegends.com/api/versions.json')).data[0]
+		try {
+			var currentGameVersion = (await axios.get('https://ddragon.leagueoflegends.com/api/versions.json')).data[0]
 
-		var championDataUnfilled = (await axios.get(`https://ddragon.leagueoflegends.com/cdn/${currentGameVersion}/data/en_US/champion.json`)).data.data
-		var championData = JSON.parse(JSON.stringify(championDataUnfilled))
+			var championDataUnfilled = (await axios.get(`https://ddragon.leagueoflegends.com/cdn/${currentGameVersion}/data/en_US/champion.json`)).data.data
+			var championData = JSON.parse(JSON.stringify(championDataUnfilled))
 
 
-		for (var champ of Object.keys(championData)) {
-			championData[championData[champ].key] = championData[champ]
-			championData[championData[champ].name] = championData[champ]
+			for (var champ of Object.keys(championData)) {
+				championData[championData[champ].key] = championData[champ]
+				championData[championData[champ].name] = championData[champ]
+			}
+
+			var stats = (await this.props.axios.get('/stats')).data
+
+			console.log(stats)
+			console.log(championData)
+
+			var loadingProgress = 'complete'
+			this.setState({ stats, championData, currentGameVersion, championDataUnfilled, loadingProgress })
+		} catch {
+			this.setState({ loadingProgress: 'fail' })
 		}
-
-		var stats = (await this.props.axios.get('/stats')).data
-
-		console.log(stats)
-		console.log(championData)
-
-		var loadingProgress = 'complete'
-		this.setState({ stats, championData, currentGameVersion, championDataUnfilled, loadingProgress })
 	}
 
 	render() {
@@ -196,8 +200,16 @@ class CompChecker extends React.Component {
 					{`${totalSamples} matches used in calculation`}
 				</div>
 			);
+		} else if (this.state.loadingProgress == 'fail') {
+			return (
+				<div className={css(styles.container)}>
+					{'Failed to load'}
+				</div>
+			)
 		} else {
-			return null
+			return (
+				<div className={css(styles.container)}/>
+			)
 		}
 		
 	}
