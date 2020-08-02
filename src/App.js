@@ -2,6 +2,9 @@ import React from 'react'
 import { BrowserRouter, Route } from "react-router-dom";
 import { StyleSheet, css } from 'aphrodite';
 import cookie from 'react-cookies'
+import axios from 'axios'
+import axiosRetry from 'axios-retry';
+
 
 import { regions } from './constants.js'
 
@@ -17,11 +20,23 @@ import About from './pages/About.js'
 import Donate from './pages/Donate.js'
 import DesktopApp from './pages/DesktopApp.js'
 import Tiltseek from './pages/Tiltseek.js'
+import CompChecker from './pages/CompChecker.js'
 
 
 library.add(faHome, faToggleOn, faToggleOff)
 
+Array.range = (start, end) => Array.from({length: (end - start)}, (v, k) => k + start);
 
+
+axiosRetry(axios, {
+	retries: 3,
+	retryDelay: axiosRetry.exponentialDelay,
+});
+if (process.env.NODE_ENV === 'development') {
+	axios.defaults.baseURL = 'http://localhost:3001/api/na1'
+} else {
+	axios.defaults.baseURL = window.location.protocol + '//' + window.location.host + '/api/na1'
+}
 
 class App extends React.Component {
 
@@ -108,6 +123,12 @@ class App extends React.Component {
 					<Route path="/bestbans/" render={(props) => {return (
 						<BestBans
 							theme={this.state.theme}
+						/>
+					)}} />
+					<Route path="/compchecker/" render={(props) => {return (
+						<CompChecker
+							theme={this.state.theme}
+							axios={axios}
 						/>
 					)}} />
 		    </div>

@@ -27,6 +27,11 @@ class Navbar extends React.Component {
 					{...this.props}
 				/>
 				<Button
+					text='Composition Analyzer'
+					url='/compchecker'
+					{...this.props}
+				/>
+				<Button
 					text='Desktop App'
 					url='/desktopapp'
 					{...this.props}
