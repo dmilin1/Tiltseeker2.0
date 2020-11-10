@@ -136,7 +136,7 @@ class DataCollector {
 		if (process.env.MONGODB_URI) {
 			var mongodbUri = process.env.MONGODB_URI
 		} else {
-			var mongodbUri = 'mongodb://' + encodeURIComponent(process.env.DBUSER) + ':' + encodeURIComponent(process.env.DBPASS) + '@ds259518.mlab.com:59518/heroku_zf74kbvq'
+			var mongodbUri = process.env.DB_URL
 		}
 		mongoose.connect(
 			mongodbUri,

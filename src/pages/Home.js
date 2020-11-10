@@ -68,8 +68,8 @@ class Home extends React.Component {
 						Find Camping Spot
 					</div>
 				</div>
-	    </div>
-	  );
+			</div>
+		);
 	}
 }
 
