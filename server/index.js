@@ -6,13 +6,21 @@ const axios = require('axios');
 const dC = require('./dataCollector.js');
 var CryptoJS = require("crypto-js")
 
-
 const dataCollector = new dC.DataCollector()
+
+const stripe = require('stripe')(
+	process.env.NODE_ENV === 'development' ?
+	process.env.STRIPE_SECRET_TEST :
+	process.env.STRIPE_SECRET_PROD
+, {
+	maxNetworkRetries: 3
+});
 
 
 startListening = () => {
 	const app = express();
 	app.use(bodyParser.urlencoded({ extended: false }));
+	app.use(bodyParser.json())
 	app.use((req, res, next) => {
 
 	    // Website you wish to allow to connect
@@ -31,6 +39,32 @@ startListening = () => {
 	    // Pass to next layer of middleware
 	    next();
 	});
+
+	app.post('/api/:region/submitDonation', async (req, res) => {
+		try {
+			const session = await stripe.checkout.sessions.retrieve(req.body.sessionId);
+			const customer = await stripe.customers.retrieve(session.customer);
+			dataCollector.saveDonation({
+				session,
+				customer,
+			})
+			res.send({
+				session,
+				customer,
+			})
+		} catch (err) {
+			res.status(500).send('error while attempting to save donation')
+		}
+	})
+
+	app.get('/api/:region/getDonations', async (req, res) => {
+		try {
+			var donations = await dataCollector.getDonations()
+			res.send(donations)
+		} catch (err) {
+			res.status(500).send('error while attempting to fetch donations')
+		}
+	})
 
 	app.get('/api/:region/stats', (req, res) => {
 		res.send(dataCollector.stats)
@@ -58,11 +92,6 @@ startListening = () => {
 		.catch((err) => {
 			res.status(err.response.status).send(err.response.data)
 		})
-	  // res.send({
-		// 	path: req.originalUrl,
-		// 	region: req.params.region,
-		// 	request: apiRequest,
-		// })
 	});
 
 

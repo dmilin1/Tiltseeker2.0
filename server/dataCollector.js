@@ -115,9 +115,25 @@ const matchupsSchema = new Schema({
 const Matchups = mongoose.model('Matchups', matchupsSchema);
 
 
+
+const donationSchema = new Schema({
+		sessionId: { type: String, required: true, unique: true },
+		amount: { type: Number, required: true },
+		paidAt: { type: Number, required: true },
+		donation: { type: Object },
+	}, {
+		timestamps: true
+	}
+);
+
+const Donation = mongoose.model('Donation', donationSchema);
+
+
+
 class DataCollector {
 	constructor() {
-		this.maxAge = (3 * 24 * 60 * 60 * 1000) // 3 days
+		this.maxAgeToClear = (3 * 24 * 60 * 60 * 1000) // 3 days
+		this.maxAgeForNewData = (2.5 * 24 * 60 * 60 * 1000) // 3 days
 		this.maxMatches = 40000
 
 		this.stats = null
@@ -275,12 +291,13 @@ class DataCollector {
 			return
 		}
 
-		var ageLimit = Date.now() - this.maxAge // 3 days ago
+		var ageLimitToClear = Date.now() - this.maxAgeToClear
+		var ageLimitForNewData = Date.now() - this.maxAgeForNewData
 
 		var clearOldMatches = () => {
 			return new Promise((resolve, reject) => {
 				Match.find({
-					gameCreation: { $lt: ageLimit }
+					gameCreation: { $lt: ageLimitToClear }
 				}, (err, doc) => {
 					var matchesToDelete = []
 					var oldPlayers = []
@@ -450,7 +467,7 @@ class DataCollector {
 		var collectMatches = (players, potentialMatches = []) => {
 			return new Promise((externalResolve, externalReject) => {
 				new Promise((resolve, reject) => {
-					var earliestMatchesAllowed = ageLimit
+					var earliestMatchesAllowed = ageLimitForNewData
 
 					var selectedPlayerIndex = Math.floor(Math.random()*players.length)
 					var selectedPlayer = players[selectedPlayerIndex]
@@ -556,6 +573,29 @@ class DataCollector {
 		newLogin.save()
 	}
 
+	async saveDonation(donation) {
+		var newDonation = new Donation()
+		newDonation.donation = donation
+		newDonation.sessionId = donation.session.id
+		newDonation.amount = donation.session.amount_total
+		newDonation.paidAt = donation.customer.created
+		await newDonation.save()
+	}
+
+	async getDonations() {
+		return await Donation.aggregate([
+			{
+				'$project': {
+				'amount': true, 
+				'paidAt': true
+				}
+			}, {
+				'$sort': {
+				'paidAt': 1
+				}
+			}
+		])
+	}
 }
 
 exports.DataCollector = DataCollector;

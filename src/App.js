@@ -32,6 +32,7 @@ axiosRetry(axios, {
 	retries: 3,
 	retryDelay: axiosRetry.exponentialDelay,
 });
+
 if (process.env.NODE_ENV === 'development') {
 	axios.defaults.baseURL = 'http://localhost:3001/api/na1'
 } else {
@@ -118,6 +119,7 @@ class App extends React.Component {
 					<Route path="/donate/" render={(props) => {return (
 						<Donate
 							theme={this.state.theme}
+							axios={axios}
 						/>
 					)}} />
 					<Route path="/bestbans/" render={(props) => {return (
