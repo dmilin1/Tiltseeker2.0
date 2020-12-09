@@ -96,11 +96,11 @@ class Donate extends React.Component {
 		return (
 			<div className={css(styles.container)}>
 				<div className={css(styles.donationText)}>
-					<div className={css(styles.daysLeft)} style={{ opacity: this.state.daysBought ? 1 : 0, height: this.state.daysBought ? 40 : 0 }}>
+					<div className={css(styles.daysLeft)} style={{ opacity: this.state.daysBought != null ? 1 : 0, height: this.state.daysBought != null ? 40 : 0 }}>
 						{`Thank you for keeping Tiltseeker running for ${(this.state.daysBought)?.toFixed(2) ?? '...'} more days`}
 					</div>
 					<br/>
-					<div className={css(styles.daysLeft)} style={{ opacity: this.state.solventFor != null ? 1 : 0, height: this.state.solventFor ? 40 : 0 }}>
+					<div className={css(styles.daysLeft)} style={{ opacity: this.state.solventFor != null ? 1 : 0, height: this.state.solventFor != null ? 40 : 0 }}>
 						{`With a monthly cost of $${(this.state.pricePerHour * 24 * 30 / 100).toFixed(2)}, Tiltseeker has funds to run for ${(this.state.solventFor)?.toFixed(2) ?? '...'} days`}
 					</div>
 					<br/>
