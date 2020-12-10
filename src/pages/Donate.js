@@ -17,7 +17,7 @@ class Donate extends React.Component {
 		super()
 		this.state = {
 			price: null,
-			pricePerHour: 8, // M10 Tier at 10 GB is $0.08 / hour
+			pricePerHour: 1.5, // M10 Tier at 10 GB is $0.08 / hour
 			solventFor: null,
 			daysBought: null,
 		}

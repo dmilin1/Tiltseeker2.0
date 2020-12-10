@@ -145,7 +145,7 @@ class DataCollector {
 		this.refreshData()
 		this.interval = setInterval(() => {
 			if (!this.pause) { this.refreshData() }
-		}, 300000)
+		}, 900000)
 	}
 
 	_connect() {
@@ -192,98 +192,220 @@ class DataCollector {
 		)
 	}
 
-	getStats() {
-		return new Promise((resolve, reject) => {
-			Player.aggregate([{
-				$group: {
-					_id: '$championId',
-					count: { $sum: 1 },
-					winRateAvg: { $avg: '$win' },
-					gameDurationAvg: { $avg: '$gameDuration' },
+	async getGoodData() {
+		var currentGameVersion = (await axios.get('https://ddragon.leagueoflegends.com/api/versions.json')).data[0]
+		var championData = (await axios.get(`https://ddragon.leagueoflegends.com/cdn/${currentGameVersion}/data/en_US/champion.json`)).data.data
+		var championIds = Object.values(championData).map(champ => Number(champ.key)).sort((a, b) => a - b)
 
-					spell1Id: { $max: '$spell1Id' },
-					spell2Id: { $max: '$spell2Id' },
+		var stats = await Promise.all(championIds.map(async (id) => { 
+			return (await axios.get(`https://apix1.op.lol/mega/?ep=champion&v=8&patch=14&cid=${id}&lane=default&tier=all&queue=420&region=all`)).data
+		}))
 
-					firstBloodParticipateAvg: { $avg: { $max: ['$firstBloodKill','$firstBloodAssist'] } },
-					visionScorePerSecAvg: { $avg: { $divide: [ '$visionScore', '$gameDuration' ] } },
-					magicDamageDealtToChampionPerSecsAvg: { $avg: { $divide: [ '$magicDamageDealtToChampions', '$gameDuration' ] } },
-					physicalDamageDealtToChampionsPerSecAvg: { $avg: { $divide: [ '$physicalDamageDealtToChampions', '$gameDuration' ] } },
-					trueDamageDealtToChampionsPerSecAvg: { $avg: { $divide: [ '$trueDamageDealtToChampions', '$gameDuration' ] } },
-					totalDamageDealtToChampionsPerSecAvg: { $avg: { $divide: [ '$totalDamageDealtToChampions', '$gameDuration' ] } },
-					magicalDamageTakenPerSecAvg: { $avg: { $divide: [ '$magicalDamageTaken', '$gameDuration' ] } },
-					physicalDamageTakenPerSecAvg: { $avg: { $divide: [ '$physicalDamageTaken', '$gameDuration' ] } },
-					trueDamageTakenPerSecAvg: { $avg: { $divide: [ '$trueDamageTaken', '$gameDuration' ] } },
-					totalDamageTakenPerSecAvg: { $avg: { $divide: [ '$totalDamageTaken', '$gameDuration' ] } },
-					damageDealtToObjectivesAvg: { $avg: '$damageDealtToObjectives' },
-					damageDealtToTurretsAvg: { $avg: '$damageDealtToTurrets' },
-					killsPerSecAvg: { $avg: { $divide: [ '$kills', '$gameDuration' ] } },
-					deathsPerSecAvg: { $avg: { $divide: [ '$deaths', '$gameDuration' ] } },
-					assistsPerSecAvg: { $avg: { $divide: [ '$assists', '$gameDuration' ] } },
-					wardsKilledPerSecAvg: { $avg: { $divide: [ '$wardsKilled', '$gameDuration' ] } },
-					neutralMinionsKilledTeamJunglePerSecAvg: { $avg: { $divide: [ '$neutralMinionsKilledTeamJungle', '$gameDuration' ] } },
-					neutralMinionsKilledEnemyJunglePerSecAvg: { $avg: { $divide: [ '$neutralMinionsKilledEnemyJungle', '$gameDuration' ] } },
-					damageSelfMitigatedPerSecAvg: { $avg: { $divide: [ '$damageSelfMitigated', '$gameDuration' ] } },
-					firstInhibitorParticipateAvg: { $avg: { $max: ['$firstInhibitorKill','$firstInhibitorAssist'] } },
-					goldEarnedPerSecAvg: { $avg: { $divide: [ '$goldEarned', '$gameDuration' ] } },
-					timeCCingOthersPerSecAvg: { $avg: { $divide: [ '$timeCCingOthers', '$gameDuration' ] } },
-					totalHealPerSecAvg: { $avg: { $divide: [ '$totalHeal', '$gameDuration' ] } },
+		var noDataChamps = []
+		
+		stats = stats.reduce((result, champData, i) => {
+			var champId = championIds[i]
+			
+			try {
+				// gameDurationAvg is estimate. No way to get perfect number right now.
 
+				var champStats = champData.stats.reduce((accum, [key, name, idkWhatThisIs, value, percentile, rank]) => {
+					accum[key] = value
+					return accum
+				}, {})
 
-					winRateStdDev: { $stdDevPop: '$win' },
-					gameDurationStdDev: { $stdDevPop: '$gameDuration' },
+				var objectiveStats = Object.entries(champData.objective).reduce((accum, [key, data]) => {
+					accum[key] = data['win'][0]
+					return accum
+				}, {})
 
-					firstBloodParticipateStdDev: { $stdDevPop: { $max: ['$firstBloodKill','$firstBloodAssist'] } },
-					visionScorePerSecStdDev: { $stdDevPop: { $divide: [ '$visionScore', '$gameDuration' ] } },
-					magicDamageDealtToChampionsPerSecStdDev: { $stdDevPop: { $divide: [ '$magicDamageDealtToChampions', '$gameDuration' ] } },
-					physicalDamageDealtToChampionsPerSecStdDev: { $stdDevPop: { $divide: [ '$physicalDamageDealtToChampions', '$gameDuration' ] } },
-					trueDamageDealtToChampionsPerSecStdDev: { $stdDevPop: { $divide: [ '$trueDamageDealtToChampions', '$gameDuration' ] } },
-					totalDamageDealtToChampionsPerSecStdDev: { $stdDevPop: { $divide: [ '$totalDamageDealtToChampions', '$gameDuration' ] } },
-					magicalDamageTakenPerSecStdDev: { $stdDevPop: { $divide: [ '$magicalDamageTaken', '$gameDuration' ] } },
-					physicalDamageTakenPerSecStdDev: { $stdDevPop: { $divide: [ '$physicalDamageTaken', '$gameDuration' ] } },
-					trueDamageTakenPerSecStdDev: { $stdDevPop: { $divide: [ '$trueDamageTaken', '$gameDuration' ] } },
-					totalDamageTakenPerSecStdDev: { $stdDevPop: { $divide: [ '$totalDamageTaken', '$gameDuration' ] } },
-					damageDealtToObjectivesStdDev: { $stdDevPop: '$damageDealtToObjectives' },
-					damageDealtToTurretsStdDev: { $stdDevPop: '$damageDealtToTurrets' },
-					killsPerSecStdDev: { $stdDevPop: { $divide: [ '$kills', '$gameDuration' ] } },
-					deathsPerSecStdDev: { $stdDevPop: { $divide: [ '$deaths', '$gameDuration' ] } },
-					assistsPerSecStdDev: { $stdDevPop: { $divide: [ '$assists', '$gameDuration' ] } },
-					wardsKilledPerSecStdDev: { $stdDevPop: { $divide: [ '$wardsKilled', '$gameDuration' ] } },
-					neutralMinionsKilledTeamJunglePerSecStdDev: { $stdDevPop: { $divide: [ '$neutralMinionsKilledTeamJungle', '$gameDuration' ] } },
-					neutralMinionsKilledEnemyJunglePerSecStdDev: { $stdDevPop: { $divide: [ '$neutralMinionsKilledEnemyJungle', '$gameDuration' ] } },
-					damageSelfMitigatedPerSecStdDev: { $stdDevPop: { $divide: [ '$damageSelfMitigated', '$gameDuration' ] } },
-					firstInhibitorParticipateStdDev: { $stdDevPop: { $max: ['$firstInhibitorKill','$firstInhibitorAssist'] } },
-					goldEarnedPerSecStdDev: { $stdDevPop: { $divide: [ '$goldEarned', '$gameDuration' ] } },
-					timeCCingOthersPerSecStdDev: { $stdDevPop: { $divide: [ '$timeCCingOthers', '$gameDuration' ] } },
-					totalHealPerSecStdDev: { $stdDevPop: { $divide: [ '$totalHeal', '$gameDuration' ] } },
+				result[champId] = {
+					_id: champId,
+					count: champData.n,
+					winRateAvg: champData.header.wr / 100,
+					banRateAvg: champData.header.br / 100,
+
+					spell1Id: champData.summary.sums[0],
+					spell2Id: champData.summary.sums[1],
+
+					firstBloodParticipateAvg: objectiveStats.blood1 / 100,
+					magicDamageDealtToChampionPerSecsAvg: champStats.magicDamage,
+					physicalDamageDealtToChampionsPerSecAvg: champStats.physicalDamage,
+					trueDamageDealtToChampionsPerSecAvg: champStats.trueDamage,
+					totalDamageDealtToChampionsPerSecAvg: champStats.damage,
+					totalDamageTakenPerSecAvg: champStats.damageTaken,
+					killsPerSecAvg: champStats.kills,
+					deathsPerSecAvg: champStats.deaths,
+					assistsPerSecAvg: champStats.assists,
+					neutralMinionsKilledTeamJunglePerSecAvg: champStats.teamJungleCS,
+					neutralMinionsKilledEnemyJunglePerSecAvg: champStats.enemyJungleCS,
+					firstInhibitorParticipateAvg: objectiveStats.inhibitor1 / 100,
+					goldEarnedPerSecAvg: champStats.gold,
+					totalHealPerSecAvg: champStats.heal,
 				}
-			}], (err, champStats) => {
-				if (err) {
-					console.log(err)
-					reject()
-				} else {
-					Matchups.find({ updatedAt: { $gt: new Date() - 1000 * 60 * 60 * 24 * 14 }}, (err, matchupFiles) => {
-						if (err) {
-							console.log(err)
-							reject()
-						} else {
-							var fullMatchups = {}
-							for (var matchups of matchupFiles) {
-								for (var arr of Object.entries(matchups.matchups)) {
-									var matchup = arr[0]
-									var score = arr[1]
-									fullMatchups[matchup] = fullMatchups[matchup] ? fullMatchups[matchup] + score : score
-								}
-							}
-							this.stats = {
-								champStats: champStats,
-								matchups: fullMatchups,
-							}
-							resolve()
-						}
-					})
+			} catch (e) {
+				// console.log(e)
+				noDataChamps.push(champId)
+			}
+
+			return result
+		}, {})
+
+		if (noDataChamps.length > 5) {
+			throw Error('failed to fetch stats from lolalytics')
+		}
+
+		var counters = await Promise.all(championIds.map(async (id) => { 
+			return (await axios.get(`https://apix1.op.lol/mega/?ep=counter&p=d&v=1&patch=14&cid=${id}&lane=default&tier=all`)).data
+		}))
+
+		var synergies = await Promise.all(championIds.map(async (id) => { 
+			return (await axios.get(`https://apix1.op.lol/mega/?ep=champion2&v=8&patch=14&cid=${id}&lane=default&tier=all&queue=420&region=all`)).data
+		}))
+
+		var lanes = ['top', 'jungle', 'mid', 'support', 'bottom']
+
+		var matchups = championIds.reduce((result, champA, i) => championIds.slice(i).reduce((result, champB, i) => {
+			result[`${champA}v${champB}`] = 0
+			result[`${champA}v${champB}_total`] = 0
+			result[`${champA}w${champB}`] = 0
+			result[`${champA}w${champB}_total`] = 0
+			return result
+		}, result), {})
+
+		lanes.forEach(lane => {
+			counters.forEach((counter, i) => (counter[`enemy_${lane}`] || []).forEach(([champB, gamesPlayed, gamesWon, enemyOverallLaneWinrate]) => {
+				var champA = championIds[i]
+				if (champA <= champB) {
+					matchups[`${champA}v${champB}`] += Number(gamesWon)
+					matchups[`${champA}v${champB}_total`] += Number(gamesPlayed)
 				}
-			})
+			}))
+			synergies.forEach((synergy, i) => (synergy[`team_${lane}`] || []).forEach(([champB, gamesPlayed, gamesWon, enemyOverallLaneWinrate]) => {
+				var champA = championIds[i]
+				if (champA <= champB) {
+					matchups[`${champA}w${champB}`] += Number(gamesWon)
+					matchups[`${champA}w${champB}_total`] += Number(gamesPlayed)
+				}
+			}))
 		})
+
+		counters.forEach((counter, i) => {
+			var champId = championIds[i]
+			matchups[`${champId}w${champId}`] = counter.win
+			matchups[`${champId}w${champId}_total`] = counter.pick
+		})
+
+		return {
+			stats,
+			matchups
+		}
+	}
+
+	async getStats() {
+		var champStats = await Player.aggregate([{
+			$group: {
+				_id: '$championId',
+				count: { $sum: 1 },
+				winRateAvg: { $avg: '$win' },
+				gameDurationAvg: { $avg: '$gameDuration' },
+
+				spell1Id: { $max: '$spell1Id' },
+				spell2Id: { $max: '$spell2Id' },
+
+				firstBloodParticipateAvg: { $avg: { $max: ['$firstBloodKill','$firstBloodAssist'] } },
+				visionScorePerSecAvg: { $avg: { $divide: [ '$visionScore', '$gameDuration' ] } },
+				magicDamageDealtToChampionPerSecsAvg: { $avg: { $divide: [ '$magicDamageDealtToChampions', '$gameDuration' ] } },
+				physicalDamageDealtToChampionsPerSecAvg: { $avg: { $divide: [ '$physicalDamageDealtToChampions', '$gameDuration' ] } },
+				trueDamageDealtToChampionsPerSecAvg: { $avg: { $divide: [ '$trueDamageDealtToChampions', '$gameDuration' ] } },
+				totalDamageDealtToChampionsPerSecAvg: { $avg: { $divide: [ '$totalDamageDealtToChampions', '$gameDuration' ] } },
+				magicalDamageTakenPerSecAvg: { $avg: { $divide: [ '$magicalDamageTaken', '$gameDuration' ] } },
+				physicalDamageTakenPerSecAvg: { $avg: { $divide: [ '$physicalDamageTaken', '$gameDuration' ] } },
+				trueDamageTakenPerSecAvg: { $avg: { $divide: [ '$trueDamageTaken', '$gameDuration' ] } },
+				totalDamageTakenPerSecAvg: { $avg: { $divide: [ '$totalDamageTaken', '$gameDuration' ] } },
+				damageDealtToObjectivesAvg: { $avg: '$damageDealtToObjectives' },
+				damageDealtToTurretsAvg: { $avg: '$damageDealtToTurrets' },
+				killsPerSecAvg: { $avg: { $divide: [ '$kills', '$gameDuration' ] } },
+				deathsPerSecAvg: { $avg: { $divide: [ '$deaths', '$gameDuration' ] } },
+				assistsPerSecAvg: { $avg: { $divide: [ '$assists', '$gameDuration' ] } },
+				wardsKilledPerSecAvg: { $avg: { $divide: [ '$wardsKilled', '$gameDuration' ] } },
+				neutralMinionsKilledTeamJunglePerSecAvg: { $avg: { $divide: [ '$neutralMinionsKilledTeamJungle', '$gameDuration' ] } },
+				neutralMinionsKilledEnemyJunglePerSecAvg: { $avg: { $divide: [ '$neutralMinionsKilledEnemyJungle', '$gameDuration' ] } },
+				damageSelfMitigatedPerSecAvg: { $avg: { $divide: [ '$damageSelfMitigated', '$gameDuration' ] } },
+				firstInhibitorParticipateAvg: { $avg: { $max: ['$firstInhibitorKill','$firstInhibitorAssist'] } },
+				goldEarnedPerSecAvg: { $avg: { $divide: [ '$goldEarned', '$gameDuration' ] } },
+				timeCCingOthersPerSecAvg: { $avg: { $divide: [ '$timeCCingOthers', '$gameDuration' ] } },
+				totalHealPerSecAvg: { $avg: { $divide: [ '$totalHeal', '$gameDuration' ] } },
+
+
+				winRateStdDev: { $stdDevPop: '$win' },
+				gameDurationStdDev: { $stdDevPop: '$gameDuration' },
+
+				firstBloodParticipateStdDev: { $stdDevPop: { $max: ['$firstBloodKill','$firstBloodAssist'] } },
+				visionScorePerSecStdDev: { $stdDevPop: { $divide: [ '$visionScore', '$gameDuration' ] } },
+				magicDamageDealtToChampionsPerSecStdDev: { $stdDevPop: { $divide: [ '$magicDamageDealtToChampions', '$gameDuration' ] } },
+				physicalDamageDealtToChampionsPerSecStdDev: { $stdDevPop: { $divide: [ '$physicalDamageDealtToChampions', '$gameDuration' ] } },
+				trueDamageDealtToChampionsPerSecStdDev: { $stdDevPop: { $divide: [ '$trueDamageDealtToChampions', '$gameDuration' ] } },
+				totalDamageDealtToChampionsPerSecStdDev: { $stdDevPop: { $divide: [ '$totalDamageDealtToChampions', '$gameDuration' ] } },
+				magicalDamageTakenPerSecStdDev: { $stdDevPop: { $divide: [ '$magicalDamageTaken', '$gameDuration' ] } },
+				physicalDamageTakenPerSecStdDev: { $stdDevPop: { $divide: [ '$physicalDamageTaken', '$gameDuration' ] } },
+				trueDamageTakenPerSecStdDev: { $stdDevPop: { $divide: [ '$trueDamageTaken', '$gameDuration' ] } },
+				totalDamageTakenPerSecStdDev: { $stdDevPop: { $divide: [ '$totalDamageTaken', '$gameDuration' ] } },
+				damageDealtToObjectivesStdDev: { $stdDevPop: '$damageDealtToObjectives' },
+				damageDealtToTurretsStdDev: { $stdDevPop: '$damageDealtToTurrets' },
+				killsPerSecStdDev: { $stdDevPop: { $divide: [ '$kills', '$gameDuration' ] } },
+				deathsPerSecStdDev: { $stdDevPop: { $divide: [ '$deaths', '$gameDuration' ] } },
+				assistsPerSecStdDev: { $stdDevPop: { $divide: [ '$assists', '$gameDuration' ] } },
+				wardsKilledPerSecStdDev: { $stdDevPop: { $divide: [ '$wardsKilled', '$gameDuration' ] } },
+				neutralMinionsKilledTeamJunglePerSecStdDev: { $stdDevPop: { $divide: [ '$neutralMinionsKilledTeamJungle', '$gameDuration' ] } },
+				neutralMinionsKilledEnemyJunglePerSecStdDev: { $stdDevPop: { $divide: [ '$neutralMinionsKilledEnemyJungle', '$gameDuration' ] } },
+				damageSelfMitigatedPerSecStdDev: { $stdDevPop: { $divide: [ '$damageSelfMitigated', '$gameDuration' ] } },
+				firstInhibitorParticipateStdDev: { $stdDevPop: { $max: ['$firstInhibitorKill','$firstInhibitorAssist'] } },
+				goldEarnedPerSecStdDev: { $stdDevPop: { $divide: [ '$goldEarned', '$gameDuration' ] } },
+				timeCCingOthersPerSecStdDev: { $stdDevPop: { $divide: [ '$timeCCingOthers', '$gameDuration' ] } },
+				totalHealPerSecStdDev: { $stdDevPop: { $divide: [ '$totalHeal', '$gameDuration' ] } },
+			}
+		}])
+
+
+		try {
+			var goodData = await this.getGoodData()
+
+			for (var champData of champStats) {
+				// fix perSec stats
+				Object.keys(goodData.stats[champData._id]).forEach(key => {
+					if (key.toLowerCase().includes('persec')) {
+						goodData.stats[champData._id][key] /= champData.gameDurationAvg
+					}
+				})
+
+				Object.assign(champData, goodData.stats[champData._id])
+			}
+
+			var fullMatchups = goodData.matchups
+
+			console.log('Successfully fetched stats from lolalytics')
+		} catch (e) {
+			console.log(e)
+			console.log('Failed to fetch data from lolalytics. Using self hosted data instead.')
+
+			var matchupFiles = await Matchups.find({ updatedAt: { $gt: new Date() - 1000 * 60 * 60 * 24 * 14 }})
+
+			var fullMatchups = {}
+			
+			for (var matchups of matchupFiles) {
+				for (var arr of Object.entries(matchups.matchups)) {
+					var matchup = arr[0]
+					var score = arr[1]
+					fullMatchups[matchup] = fullMatchups[matchup] ? fullMatchups[matchup] + score : score
+				}
+			}
+		}
+
+		this.stats = {
+			champStats: champStats,
+			matchups: fullMatchups,
+		}
 	}
 
 	refreshData() {

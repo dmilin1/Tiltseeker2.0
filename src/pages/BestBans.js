@@ -67,9 +67,10 @@ class BestBans extends React.Component {
 
 		for (var champ of champStats) {
 			results[champ._id] = {
-				influence: 10000 * ( champ.winRateAvg - 0.5 ) * ( champ.count / totalMatches ),
+				influence: 10000 * ( champ.winRateAvg - 0.5 ) * ( champ.count / totalMatches ) / ( 1 - (champ.banRateAvg ?? 0) ),
 				pickRate: champ.count / totalMatches,
 				winRate: champ.winRateAvg,
+				banRate: champ.banRateAvg ?? '?',
 			}
 		}
 
@@ -108,6 +109,9 @@ class BestBans extends React.Component {
 											</div>
 											<div style={{ fontWeight: 300, fontSize: 15, }}>
 											{`Pick Rate: ${(data.pickRate * 100).toFixed(2)}%`}
+											</div>
+											<div style={{ fontWeight: 300, fontSize: 15, }}>
+											{`Ban Rate: ${(data.banRate * 100).toFixed(2)}%`}
 											</div>
 										</div>
 									</div>
@@ -149,6 +153,9 @@ class BestBans extends React.Component {
 								<div style={{ fontWeight: 600, fontSize: 18, flex: 5 }}>
 									{`Pick Rate`}
 								</div>
+								<div style={{ fontWeight: 600, fontSize: 18, flex: 5 }}>
+									{`Ban Rate`}
+								</div>
 							</div>
 							{Object.entries(this.state.calculations).sort((a, b) => b[1].influence - a[1].influence).map((arr, i) => {
 								var champId = arr[0]
@@ -169,6 +176,9 @@ class BestBans extends React.Component {
 										</div>
 										<div style={{ fontWeight: 300, fontSize: 16, flex: 5 }}>
 											{`${(data.pickRate * 100).toFixed(2)}%`}
+										</div>
+										<div style={{ fontWeight: 300, fontSize: 16, flex: 5 }}>
+											{`${(data.banRate * 100).toFixed(2)}%`}
 										</div>
 									</div>
 								)
