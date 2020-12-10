@@ -197,104 +197,110 @@ class DataCollector {
 		var championData = (await axios.get(`https://ddragon.leagueoflegends.com/cdn/${currentGameVersion}/data/en_US/champion.json`)).data.data
 		var championIds = Object.values(championData).map(champ => Number(champ.key)).sort((a, b) => a - b)
 
-		var stats = await Promise.all(championIds.map(async (id) => { 
-			return (await axios.get(`https://apix1.op.lol/mega/?ep=champion&v=8&patch=14&cid=${id}&lane=default&tier=all&queue=420&region=all`)).data
-		}))
-
 		var noDataChamps = []
-		
-		stats = stats.reduce((result, champData, i) => {
-			var champId = championIds[i]
+
+		var batchSize = 10
+
+		var batchedChampionIds = [...Array(Math.ceil(championIds.length/batchSize)).keys()].map(i => championIds.slice(i*batchSize, (i+1)*batchSize))
+
+		var stats = {}
+
+		for (var idBatch of batchedChampionIds) {
+			var statsBatch = await Promise.all(idBatch.map(async (id) => { 
+				return (await axios.get(`https://apix1.op.lol/mega/?ep=champion&v=8&patch=14&cid=${id}&lane=default&tier=all&queue=420&region=all`)).data
+			}))
+			statsBatch.forEach((champData, i) => {
+				var champId = idBatch[i]
 			
-			try {
-				// gameDurationAvg is estimate. No way to get perfect number right now.
+				try {
+					// gameDurationAvg is estimate. No way to get perfect number right now.
 
-				var champStats = champData.stats.reduce((accum, [key, name, idkWhatThisIs, value, percentile, rank]) => {
-					accum[key] = value
-					return accum
-				}, {})
+					var champStats = champData.stats.reduce((accum, [key, name, idkWhatThisIs, value, percentile, rank]) => {
+						accum[key] = value
+						return accum
+					}, {})
 
-				var objectiveStats = Object.entries(champData.objective).reduce((accum, [key, data]) => {
-					accum[key] = data['win'][0]
-					return accum
-				}, {})
+					var objectiveStats = Object.entries(champData.objective).reduce((accum, [key, data]) => {
+						accum[key] = data['win'][0]
+						return accum
+					}, {})
 
-				result[champId] = {
-					_id: champId,
-					count: champData.n,
-					winRateAvg: champData.header.wr / 100,
-					banRateAvg: champData.header.br / 100,
+					stats[champId] = {
+						_id: champId,
+						count: champData.n,
+						winRateAvg: champData.header.wr / 100,
+						banRateAvg: champData.header.br / 100,
 
-					spell1Id: champData.summary.sums[0],
-					spell2Id: champData.summary.sums[1],
+						spell1Id: champData.summary.sums[0],
+						spell2Id: champData.summary.sums[1],
 
-					firstBloodParticipateAvg: objectiveStats.blood1 / 100,
-					magicDamageDealtToChampionPerSecsAvg: champStats.magicDamage,
-					physicalDamageDealtToChampionsPerSecAvg: champStats.physicalDamage,
-					trueDamageDealtToChampionsPerSecAvg: champStats.trueDamage,
-					totalDamageDealtToChampionsPerSecAvg: champStats.damage,
-					totalDamageTakenPerSecAvg: champStats.damageTaken,
-					killsPerSecAvg: champStats.kills,
-					deathsPerSecAvg: champStats.deaths,
-					assistsPerSecAvg: champStats.assists,
-					neutralMinionsKilledTeamJunglePerSecAvg: champStats.teamJungleCS,
-					neutralMinionsKilledEnemyJunglePerSecAvg: champStats.enemyJungleCS,
-					firstInhibitorParticipateAvg: objectiveStats.inhibitor1 / 100,
-					goldEarnedPerSecAvg: champStats.gold,
-					totalHealPerSecAvg: champStats.heal,
+						firstBloodParticipateAvg: objectiveStats.blood1 / 100,
+						magicDamageDealtToChampionPerSecsAvg: champStats.magicDamage,
+						physicalDamageDealtToChampionsPerSecAvg: champStats.physicalDamage,
+						trueDamageDealtToChampionsPerSecAvg: champStats.trueDamage,
+						totalDamageDealtToChampionsPerSecAvg: champStats.damage,
+						totalDamageTakenPerSecAvg: champStats.damageTaken,
+						killsPerSecAvg: champStats.kills,
+						deathsPerSecAvg: champStats.deaths,
+						assistsPerSecAvg: champStats.assists,
+						neutralMinionsKilledTeamJunglePerSecAvg: champStats.teamJungleCS,
+						neutralMinionsKilledEnemyJunglePerSecAvg: champStats.enemyJungleCS,
+						firstInhibitorParticipateAvg: objectiveStats.inhibitor1 / 100,
+						goldEarnedPerSecAvg: champStats.gold,
+						totalHealPerSecAvg: champStats.heal,
+					}
+				} catch (e) {
+					noDataChamps.push(champId)
 				}
-			} catch (e) {
-				// console.log(e)
-				noDataChamps.push(champId)
-			}
-
-			return result
-		}, {})
+			})
+		}
 
 		if (noDataChamps.length > 5) {
 			throw Error('failed to fetch stats from lolalytics')
 		}
 
-		var counters = await Promise.all(championIds.map(async (id) => { 
-			return (await axios.get(`https://apix1.op.lol/mega/?ep=counter&p=d&v=1&patch=14&cid=${id}&lane=default&tier=all`)).data
-		}))
+		console.log('fetched stats from lolalytics')
 
-		var synergies = await Promise.all(championIds.map(async (id) => { 
-			return (await axios.get(`https://apix1.op.lol/mega/?ep=champion2&v=8&patch=14&cid=${id}&lane=default&tier=all&queue=420&region=all`)).data
-		}))
 
-		var lanes = ['top', 'jungle', 'mid', 'support', 'bottom']
+		var matchups = {}
 
-		var matchups = championIds.reduce((result, champA, i) => championIds.slice(i).reduce((result, champB, i) => {
-			result[`${champA}v${champB}`] = 0
-			result[`${champA}v${champB}_total`] = 0
-			result[`${champA}w${champB}`] = 0
-			result[`${champA}w${champB}_total`] = 0
-			return result
-		}, result), {})
+		for (var idBatch of batchedChampionIds) {
 
-		lanes.forEach(lane => {
-			counters.forEach((counter, i) => (counter[`enemy_${lane}`] || []).forEach(([champB, gamesPlayed, gamesWon, enemyOverallLaneWinrate]) => {
-				var champA = championIds[i]
-				if (champA <= champB) {
-					matchups[`${champA}v${champB}`] += Number(gamesWon)
-					matchups[`${champA}v${champB}_total`] += Number(gamesPlayed)
-				}
+			var countersBatch = await Promise.all(idBatch.map(async (id) => { 
+				return (await axios.get(`https://apix1.op.lol/mega/?ep=counter&p=d&v=1&patch=14&cid=${id}&lane=default&tier=all`)).data
 			}))
-			synergies.forEach((synergy, i) => (synergy[`team_${lane}`] || []).forEach(([champB, gamesPlayed, gamesWon, enemyOverallLaneWinrate]) => {
-				var champA = championIds[i]
-				if (champA <= champB) {
-					matchups[`${champA}w${champB}`] += Number(gamesWon)
-					matchups[`${champA}w${champB}_total`] += Number(gamesPlayed)
-				}
-			}))
-		})
 
-		counters.forEach((counter, i) => {
-			var champId = championIds[i]
-			matchups[`${champId}w${champId}`] = counter.win
-			matchups[`${champId}w${champId}_total`] = counter.pick
-		})
+			var synergiesBatch = await Promise.all(idBatch.map(async (id) => { 
+				return (await axios.get(`https://apix1.op.lol/mega/?ep=champion2&v=8&patch=14&cid=${id}&lane=default&tier=all&queue=420&region=all`)).data
+			}))
+
+			var lanes = ['top', 'jungle', 'mid', 'support', 'bottom']
+
+			lanes.forEach(lane => {
+				countersBatch.forEach((counter, i) => (counter[`enemy_${lane}`] || []).forEach(([champB, gamesPlayed, gamesWon, enemyOverallLaneWinrate]) => {
+					var champA = championIds[i]
+					if (champA <= champB) {
+						matchups[`${champA}v${champB}`] = Number(gamesWon)
+						matchups[`${champA}v${champB}_total`] = Number(gamesPlayed)
+					}
+				}))
+				synergiesBatch.forEach((synergy, i) => (synergy[`team_${lane}`] || []).forEach(([champB, gamesPlayed, gamesWon, enemyOverallLaneWinrate]) => {
+					var champA = championIds[i]
+					if (champA <= champB) {
+						matchups[`${champA}w${champB}`] = Number(gamesWon)
+						matchups[`${champA}w${champB}_total`] = Number(gamesPlayed)
+					}
+				}))
+			})
+
+			countersBatch.forEach((counter, i) => {
+				var champId = championIds[i]
+				matchups[`${champId}w${champId}`] = counter.win
+				matchups[`${champId}w${champId}_total`] = counter.pick
+			})
+		}
+
+		console.log('fetched synergies and counters from lolalytics')
 
 		return {
 			stats,
