@@ -264,6 +264,13 @@ class DataCollector {
 
 		var matchups = {}
 
+		championIds.forEach((champA, i) => championIds.slice(i).forEach((champB, i) => {
+			matchups[`${champA}v${champB}`] = 0
+			matchups[`${champA}v${champB}_total`] = 0
+			matchups[`${champA}w${champB}`] = 0
+			matchups[`${champA}w${champB}_total`] = 0
+		}))
+
 		for (var idBatch of batchedChampionIds) {
 
 			var countersBatch = await Promise.all(idBatch.map(async (id) => { 
@@ -278,23 +285,23 @@ class DataCollector {
 
 			lanes.forEach(lane => {
 				countersBatch.forEach((counter, i) => (counter[`enemy_${lane}`] || []).forEach(([champB, gamesPlayed, gamesWon, enemyOverallLaneWinrate]) => {
-					var champA = championIds[i]
+					var champA = idBatch[i]
 					if (champA <= champB) {
-						matchups[`${champA}v${champB}`] = Number(gamesWon)
-						matchups[`${champA}v${champB}_total`] = Number(gamesPlayed)
+						matchups[`${champA}v${champB}`] += Number(gamesWon)
+						matchups[`${champA}v${champB}_total`] += Number(gamesPlayed)
 					}
 				}))
 				synergiesBatch.forEach((synergy, i) => (synergy[`team_${lane}`] || []).forEach(([champB, gamesPlayed, gamesWon, enemyOverallLaneWinrate]) => {
-					var champA = championIds[i]
+					var champA = idBatch[i]
 					if (champA <= champB) {
-						matchups[`${champA}w${champB}`] = Number(gamesWon)
-						matchups[`${champA}w${champB}_total`] = Number(gamesPlayed)
+						matchups[`${champA}w${champB}`] += Number(gamesWon)
+						matchups[`${champA}w${champB}_total`] += Number(gamesPlayed)
 					}
 				}))
 			})
 
 			countersBatch.forEach((counter, i) => {
-				var champId = championIds[i]
+				var champId = idBatch[i]
 				matchups[`${champId}w${champId}`] = counter.win
 				matchups[`${champId}w${champId}_total`] = counter.pick
 			})
@@ -390,7 +397,7 @@ class DataCollector {
 
 			var fullMatchups = goodData.matchups
 
-			console.log('Successfully fetched stats from lolalytics')
+			console.log('Successfully fetched data from lolalytics')
 		} catch (e) {
 			console.log(e)
 			console.log('Failed to fetch data from lolalytics. Using self hosted data instead.')
