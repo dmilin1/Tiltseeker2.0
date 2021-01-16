@@ -136,6 +136,8 @@ class DataCollector {
 		this.maxAgeForNewData = (2.5 * 24 * 60 * 60 * 1000) // 3 days
 		this.maxMatches = 40000
 
+		this.refreshInterval = 900000 // 15 minutes
+
 		this.stats = null
 
 		this.currentlyRefreshing = false
@@ -230,6 +232,7 @@ class DataCollector {
 						count: champData.n,
 						winRateAvg: champData.header.wr / 100,
 						banRateAvg: champData.header.br / 100,
+						pickRateAvg: champData.header.pr / 100,
 
 						spell1Id: champData.summary.sums[0],
 						spell2Id: champData.summary.sums[1],

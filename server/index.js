@@ -67,6 +67,7 @@ startListening = () => {
 	})
 
 	app.get('/api/:region/stats', (req, res) => {
+		res.set('Cache-Control', `public, max-age=${dataCollector.refreshInterval/1000}`);
 		res.send(dataCollector.stats)
 	})
 
