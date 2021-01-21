@@ -133,7 +133,7 @@ const Donation = mongoose.model('Donation', donationSchema);
 class DataCollector {
 	constructor() {
 		this.maxAgeToClear = (3 * 24 * 60 * 60 * 1000) // 3 days
-		this.maxAgeForNewData = (2.5 * 24 * 60 * 60 * 1000) // 3 days
+		this.maxAgeForNewData = (2.5 * 24 * 60 * 60 * 1000) // 2.5 days
 		this.maxMatches = 40000
 
 		this.refreshInterval = 900000 // 15 minutes
@@ -602,7 +602,7 @@ class DataCollector {
 			return promise
 		}
 
-		var collectMatches = (players, potentialMatches = []) => {
+		var collectMatches = (players, potentialMatches = [], depth=0) => {
 			return new Promise((externalResolve, externalReject) => {
 				new Promise((resolve, reject) => {
 					var earliestMatchesAllowed = ageLimitForNewData
@@ -669,8 +669,8 @@ class DataCollector {
 					}
 				})
 				.then(res => {
-					if (res != 'complete') {
-						externalResolve(collectMatches(players, potentialMatches))
+					if (res != 'complete' && depth < 2500) {
+						externalResolve(collectMatches(players, potentialMatches, depth=depth+1))
 					} else {
 						console.log('finished loading matches')
 						externalResolve()
