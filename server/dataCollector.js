@@ -230,9 +230,19 @@ class DataCollector {
 					stats[champId] = {
 						_id: champId,
 						count: champData.n,
+
 						winRateAvg: champData.header.wr / 100,
 						banRateAvg: champData.header.br / 100,
 						pickRateAvg: champData.header.pr / 100,
+						
+						defaultLane: champData.header.defaultLane,
+						lanes: {
+							top: champData.nav.lanes.top / 100,
+							jungle: champData.nav.lanes.jungle / 100,
+							mid: champData.nav.lanes.mid / 100,
+							bottom: champData.nav.lanes.bottom / 100,
+							support: champData.nav.lanes.support / 100,
+						},
 
 						spell1Id: champData.summary.sums[0],
 						spell2Id: champData.summary.sums[1],
