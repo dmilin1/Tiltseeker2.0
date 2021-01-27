@@ -239,7 +239,7 @@ class DataCollector {
 						lanes: {
 							top: champData.nav.lanes.top / 100,
 							jungle: champData.nav.lanes.jungle / 100,
-							mid: champData.nav.lanes.mid / 100,
+							middle: champData.nav.lanes.middle / 100,
 							bottom: champData.nav.lanes.bottom / 100,
 							support: champData.nav.lanes.support / 100,
 						},
