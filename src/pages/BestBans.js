@@ -67,8 +67,8 @@ class BestBans extends React.Component {
 
 		for (var champ of champStats) {
 			results[champ._id] = {
-				influence: 10000 * ( champ.winRateAvg - 0.5 ) * ( champ.count / totalMatches ) / ( 1 - (champ.banRateAvg ?? 0) ),
-				pickRate: champ.pickRateAvg ?? champ.count / totalMatches,
+				influence: 10000 * ( champ.winRateAvg - 0.5 ) * ( champ.pickRateAvg ?? ( champ.count / totalMatches ) ) / ( 1 - (champ.banRateAvg ?? 0) ),
+				pickRate: champ.pickRateAvg ?? ( champ.count / totalMatches ),
 				winRate: champ.winRateAvg,
 				banRate: champ.banRateAvg ?? '?',
 			}
