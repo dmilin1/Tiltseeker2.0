@@ -7,8 +7,7 @@ import { FontSize, theme } from './../Styling.js'
 import profilePic from './../images/profilePic.jpg'
 import axiosRetry from 'axios-retry'
 
-// var stripe = window.Stripe('pk_live_n9tt3dAQE6pqrkzygut35k1Z')
-var stripe = window.Stripe('pk_test_bvpzFNK36siET1hGtZkQosZ0')
+var stripe = window.Stripe(process.env.NODE_ENV == 'development' ? 'pk_test_bvpzFNK36siET1hGtZkQosZ0' : 'pk_live_n9tt3dAQE6pqrkzygut35k1Z')
 
 
 class Donate extends React.Component {
