@@ -755,7 +755,8 @@ var loadStyles = (t) => {
 			alignItems: 'center',
 	  },
 		containerDesktop: {
-			backgroundColor: 'rgba(0,0,0,0)',
+			backgroundColor: 'rgba(0.5,0.5,0.5,0.01)',
+			userSelect: 'none',
 		},
 		loadingText: {
 			color: theme('text1', t),

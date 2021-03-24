@@ -39,6 +39,23 @@ if (process.env.NODE_ENV === 'development') {
 	axios.defaults.baseURL = window.location.protocol + '//' + window.location.host + '/api/na1'
 }
 
+if (window.desktop) {
+	var dataTransfer = new window.dataTransfer('overlay', {
+		setScaling: (data) => {
+			window.webFrame.setZoomFactor(1/data)
+		},
+	})
+	dataTransfer.send('getScaling')
+}
+
+var prevMouseState = 'up'
+const sendMouseState = (state) => {
+	if (window.desktop && state != prevMouseState) {
+		dataTransfer.send('mouseState', state)
+		prevMouseState = state
+	}
+}
+
 class App extends React.Component {
 
 	constructor(props) {
@@ -82,7 +99,12 @@ class App extends React.Component {
 		var desktop = params.get('desktop')
 		return (
 			<BrowserRouter>
-				<div className={css(styles.flex)}>
+				<div
+					className={css(styles.flex)}
+					onMouseDown={() => sendMouseState('down') }
+					onMouseUp={() => sendMouseState('up') }
+					onMouseLeave={() => sendMouseState('up') }
+				>
 					{!desktop ? (
 						<Navbar
 							theme={this.state.theme}
