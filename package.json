@@ -8,7 +8,7 @@
     "@fortawesome/free-solid-svg-icons": "^5.10.2",
     "@fortawesome/react-fontawesome": "^0.1.4",
     "aphrodite": "^2.3.1",
-    "axios": "^0.19.0",
+    "axios": "^0.21.2",
     "axios-retry": "^3.1.2",
     "crypto-js": "^4.0.0",
     "heroku-self-ping": "^2.0.0",
