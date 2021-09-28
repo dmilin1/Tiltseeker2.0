@@ -635,7 +635,7 @@ class DataCollector {
                         throw e
                     }
                 }
-                await new Promise(res => setTimeout(() => res(), 500))
+                await new Promise(res => setTimeout(() => res(), 100))
             }
         }
 
