@@ -72,8 +72,7 @@ const playerSchema = new Schema({
 	assists: { type: Number, required: true },
 	visionScore: { type: Number, required: true },
 	wardsKilled: { type: Number, required: true },
-	neutralMinionsKilledTeamJungle: { type: Number, required: true },
-	neutralMinionsKilledEnemyJungle: { type: Number, required: true },
+	neutralMinionsKilled: { type: Number, required: true },
 	damageSelfMitigated: { type: Number, required: true },
 	firstInhibitorKill: { type: Number, required: true },
 	firstInhibitorAssist: { type: Number, required: true },
@@ -256,8 +255,7 @@ class DataCollector {
 						killsPerSecAvg: champStats.kills,
 						deathsPerSecAvg: champStats.deaths,
 						assistsPerSecAvg: champStats.assists,
-						neutralMinionsKilledTeamJunglePerSecAvg: champStats.teamJungleCS,
-						neutralMinionsKilledEnemyJunglePerSecAvg: champStats.enemyJungleCS,
+						neutralMinionsKilledPerSecAvg: champStats.teamJungleCS,
 						firstInhibitorParticipateAvg: objectiveStats.inhibitor1 / 100,
 						goldEarnedPerSecAvg: champStats.gold,
 						totalHealPerSecAvg: champStats.heal,
@@ -355,8 +353,7 @@ class DataCollector {
 				deathsPerSecAvg: { $avg: { $divide: [ '$deaths', '$gameDuration' ] } },
 				assistsPerSecAvg: { $avg: { $divide: [ '$assists', '$gameDuration' ] } },
 				wardsKilledPerSecAvg: { $avg: { $divide: [ '$wardsKilled', '$gameDuration' ] } },
-				neutralMinionsKilledTeamJunglePerSecAvg: { $avg: { $divide: [ '$neutralMinionsKilledTeamJungle', '$gameDuration' ] } },
-				neutralMinionsKilledEnemyJunglePerSecAvg: { $avg: { $divide: [ '$neutralMinionsKilledEnemyJungle', '$gameDuration' ] } },
+				neutralMinionsKilledPerSecAvg: { $avg: { $divide: [ '$neutralMinionsKilled', '$gameDuration' ] } },
 				damageSelfMitigatedPerSecAvg: { $avg: { $divide: [ '$damageSelfMitigated', '$gameDuration' ] } },
 				firstInhibitorParticipateAvg: { $avg: { $max: ['$firstInhibitorKill','$firstInhibitorAssist'] } },
 				goldEarnedPerSecAvg: { $avg: { $divide: [ '$goldEarned', '$gameDuration' ] } },
@@ -383,8 +380,7 @@ class DataCollector {
 				deathsPerSecStdDev: { $stdDevPop: { $divide: [ '$deaths', '$gameDuration' ] } },
 				assistsPerSecStdDev: { $stdDevPop: { $divide: [ '$assists', '$gameDuration' ] } },
 				wardsKilledPerSecStdDev: { $stdDevPop: { $divide: [ '$wardsKilled', '$gameDuration' ] } },
-				neutralMinionsKilledTeamJunglePerSecStdDev: { $stdDevPop: { $divide: [ '$neutralMinionsKilledTeamJungle', '$gameDuration' ] } },
-				neutralMinionsKilledEnemyJunglePerSecStdDev: { $stdDevPop: { $divide: [ '$neutralMinionsKilledEnemyJungle', '$gameDuration' ] } },
+				neutralMinionsKilledPerSecStdDev: { $stdDevPop: { $divide: [ '$neutralMinionsKilled', '$gameDuration' ] } },
 				damageSelfMitigatedPerSecStdDev: { $stdDevPop: { $divide: [ '$damageSelfMitigated', '$gameDuration' ] } },
 				firstInhibitorParticipateStdDev: { $stdDevPop: { $max: ['$firstInhibitorKill','$firstInhibitorAssist'] } },
 				goldEarnedPerSecStdDev: { $stdDevPop: { $divide: [ '$goldEarned', '$gameDuration' ] } },
@@ -434,7 +430,7 @@ class DataCollector {
 		}
 	}
 
-	refreshData() {
+	async refreshData() {
 		if (this.currentlyRefreshing) {
 			return
 		}
@@ -475,37 +471,31 @@ class DataCollector {
 			})
 		}
 
-		var getInitialPlayers = () => {
-			var getInitialPlayersPromise = new Promise((resolve, reject) => {
-				axios.get('https://na1.api.riotgames.com/lol/spectator/v4/featured-games', {
-					headers: {
-						'X-Riot-Token': process.env.RIOT_API
-					}
-				})
-				.then((res) => {
-					var summonerNames = []
-					for (var game of res.data.gameList) { for (var player of game.participants) { summonerNames.push(player.summonerName) }}
-					var promises = summonerNames.map(name =>
-						axios.get('https://na1.api.riotgames.com/lol/summoner/v4/summoners/by-name/' + encodeURI(name), {
-							headers: {
-								'X-Riot-Token': process.env.RIOT_API
-							}
-						})
-					)
-					axios.all(promises)
-					.then(res => {
-						resolve(res.map(res => res.data.accountId))
-					})
-					.catch((err) => {
-						reject('Failed to get featured games.')
-					})
-				})
-				.catch((err) => {
-					reject('Failed to get featured games.')
-				})
-			})
-			return getInitialPlayersPromise
+		var getInitialMatchId = async () => {
+			var currentGameId = (await axios.get('https://na1.api.riotgames.com/lol/spectator/v4/featured-games', {
+                headers: {
+                    'X-Riot-Token': process.env.RIOT_API
+                }
+            })).data.gameList.filter(game => game.gameQueueConfigId == 420)[0].gameId
+
+            var newestInDB = ((await Match.find().sort({ matchId: -1 }).limit(1)) ?? [{ matchId: 0 }])[0].matchId + 1
+            
+            return Math.max(newestInDB, currentGameId - 50_000) // roughly 8 hours old
 		}
+
+        var buildSkipPattern = () => {
+            var pattern = [1, 1]
+            var major_num_a = 1
+            var major_num_b = 1
+            for (var i = 0; i < 25; i += 1) {
+                var next_num = major_num_a + major_num_b
+                pattern = pattern.concat([...Array(Math.floor(next_num / 50))].map((_, i) => 1))
+                pattern.push(next_num)
+                major_num_b = major_num_a
+                major_num_a = next_num
+            }
+            return pattern
+        }
 
 		var addMatchToDatabase = (match) => {
 			var promise = new Promise((resolve, reject) => {
@@ -528,7 +518,7 @@ class DataCollector {
 					match.participants.forEach((otherParticipant, j) => {
 						var [a, b] = [participant, otherParticipant].sort((a, b) => a.championId - b.championId)
 						var key = a.championId + (a.teamId == b.teamId ? 'w' : 'v') + b.championId
-						matchups[key] = a.stats.win ? 1 : 0
+						matchups[key] = a.win ? 1 : 0
 					})
 				});
 
@@ -555,38 +545,37 @@ class DataCollector {
 					var player = new Player()
 
 					player.championId = participant.championId
-					player.win = participant.stats.win
+					player.win = participant.win
 					player.gameDuration = match.gameDuration
 
-					player.spell1Id = [participant.spell1Id, participant.spell2Id].sort()[0]
-					player.spell2Id = [participant.spell1Id, participant.spell2Id].sort()[1]
+					player.spell1Id = [participant.summoner1Id, participant.summoner2Id].sort()[0]
+					player.spell2Id = [participant.summoner1Id, participant.summoner2Id].sort()[1]
 
-					player.firstBloodKill = participant.stats.firstBloodKill
-					player.firstBloodAssist = participant.stats.firstBloodAssist
-					player.visionScore = participant.stats.visionScore
-					player.magicDamageDealtToChampions = participant.stats.magicDamageDealtToChampions
-					player.physicalDamageDealtToChampions = participant.stats.physicalDamageDealtToChampions
-					player.trueDamageDealtToChampions = participant.stats.trueDamageDealtToChampions
-					player.totalDamageDealtToChampions = participant.stats.totalDamageDealtToChampions
-					player.magicalDamageTaken = participant.stats.magicalDamageTaken
-					player.physicalDamageTaken = participant.stats.physicalDamageTaken
-					player.trueDamageTaken = participant.stats.trueDamageTaken
-					player.totalDamageTaken = participant.stats.totalDamageTaken
-					player.damageDealtToObjectives = participant.stats.damageDealtToObjectives
-					player.damageDealtToTurrets = participant.stats.damageDealtToTurrets
-					player.kills = participant.stats.kills
-					player.deaths = participant.stats.deaths
-					player.assists = participant.stats.assists
-					player.visionScore = participant.stats.visionScore
-					player.wardsKilled = participant.stats.wardsKilled
-					player.neutralMinionsKilledTeamJungle = participant.stats.neutralMinionsKilledTeamJungle
-					player.neutralMinionsKilledEnemyJungle = participant.stats.neutralMinionsKilledEnemyJungle
-					player.damageSelfMitigated = participant.stats.damageSelfMitigated
-					player.firstInhibitorKill = Boolean(participant.stats.firstInhibitorKill)
-					player.firstInhibitorAssist = Boolean(participant.stats.firstInhibitorAssist)
-					player.goldEarned = participant.stats.goldEarned
-					player.timeCCingOthers = participant.stats.timeCCingOthers
-					player.totalHeal = participant.stats.totalHeal
+					player.firstBloodKill = participant.firstBloodKill
+					player.firstBloodAssist = participant.firstBloodAssist
+					player.visionScore = participant.visionScore
+					player.magicDamageDealtToChampions = participant.magicDamageDealtToChampions
+					player.physicalDamageDealtToChampions = participant.physicalDamageDealtToChampions
+					player.trueDamageDealtToChampions = participant.trueDamageDealtToChampions
+					player.totalDamageDealtToChampions = participant.totalDamageDealtToChampions
+					player.magicalDamageTaken = participant.magicDamageTaken
+					player.physicalDamageTaken = participant.physicalDamageTaken
+					player.trueDamageTaken = participant.trueDamageTaken
+					player.totalDamageTaken = participant.totalDamageTaken
+					player.damageDealtToObjectives = participant.damageDealtToObjectives
+					player.damageDealtToTurrets = participant.damageDealtToTurrets
+					player.kills = participant.kills
+					player.deaths = participant.deaths
+					player.assists = participant.assists
+					player.visionScore = participant.visionScore
+					player.wardsKilled = participant.wardsKilled
+					player.neutralMinionsKilled = participant.neutralMinionsKilled
+					player.damageSelfMitigated = participant.damageSelfMitigated
+					player.firstInhibitorKill = Boolean(participant.firstInhibitorKill)
+					player.firstInhibitorAssist = Boolean(participant.firstInhibitorAssist)
+					player.goldEarned = participant.goldEarned
+					player.timeCCingOthers = participant.timeCCingOthers
+					player.totalHeal = participant.totalHeal
 
 					newPlayers.push(player)
 					newMatch.players.push(player._id)
@@ -597,9 +586,9 @@ class DataCollector {
 					if (err) {
 						reject(err)
 					} else {
-						console.log('match ' + match.gameId + ' added')
 						Player.insertMany(newPlayers, (err, doc => {
 							if (err) {
+                                console.log(err)
 								reject(err)
 							} else {
 								resolve()
@@ -612,106 +601,57 @@ class DataCollector {
 			return promise
 		}
 
-		var collectMatches = (players, potentialMatches = [], depth=0) => {
-			return new Promise((externalResolve, externalReject) => {
-				new Promise((resolve, reject) => {
-					var earliestMatchesAllowed = ageLimitForNewData
+        var collectMatches = async () => {
+            var matchId = await getInitialMatchId()
+            var skipPattern = buildSkipPattern()
+            var failedAttempts = 0
+            var currentMatchCount = await Match.estimatedDocumentCount()
 
-					var selectedPlayerIndex = Math.floor(Math.random()*players.length)
-					var selectedPlayer = players[selectedPlayerIndex]
-					players.splice(selectedPlayerIndex, 1)
-
-					if (potentialMatches.length === 0) {
-						axios.get('https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/' + selectedPlayer + '?beginTime=' + earliestMatchesAllowed + '&queue=400&queue=420', {
-							headers: {
-								'X-Riot-Token': process.env.RIOT_API
-							}
-						})
-						.then(res => {
-							for (var match of res.data.matches) {
-								potentialMatches.push(match.gameId)
-							}
-							resolve()
-						})
-						.catch(err => {
-							console.log('matches not found')
-							if (err.response.status === 404) {
-								resolve()
-							}
-						})
-					} else {
-						Match.estimatedDocumentCount()
-						.then(count => {
-							if (count < this.maxMatches) {
-								var selectedMatchIndex = Math.floor(Math.random()*potentialMatches.length)
-								var selectedMatch = potentialMatches[selectedMatchIndex]
-								potentialMatches.splice(selectedMatchIndex, 1)
-								axios.get('https://na1.api.riotgames.com/lol/match/v4/matches/' + selectedMatch, {
-									headers: {
-										'X-Riot-Token': process.env.RIOT_API
-									}
-								})
-								.then(res => {
-									addMatchToDatabase(res.data)
-									.then(() => {
-										for (var participant of res.data.participantIdentities) {
-											players.push(participant.player.currentAccountId)
-										}
-										resolve()
-									})
-									.catch((err) => {
-										if (err.name === 'MongoError' && err.code === 11000) {
-											console.log('duplicate match rejected')
-											resolve()
-										} else {
-											console.log(err)
-											reject('failed to add match to database')
-										}
-									})
-								})
-								.catch(res => {
-									reject('failed to get match data')
-								})
-							} else {
-								resolve('complete')
-							}
-						})
-					}
-				})
-				.then(res => {
-					if (res != 'complete' && depth < 2500) {
-						externalResolve(collectMatches(players, potentialMatches, depth=depth+1))
-					} else {
-						console.log('finished loading matches')
-						externalResolve()
-					}
-				})
-			})
-		}
-
+            while (currentMatchCount < this.maxMatches) {
+                try {
+                    var match = (await axios.get('https://americas.api.riotgames.com/lol/match/v5/matches/NA1_' + matchId, {
+                        headers: {
+                            'X-Riot-Token': process.env.RIOT_API
+                        }
+                    }))?.data?.info
+                    if (match.queueId != 420 && match.queueId != 400) {
+                        throw 'wrong queue'
+                    }
+                    await addMatchToDatabase(match)
+                    console.log(`${matchId}: added to db`)
+                    matchId += 1
+                    failedAttempts = 0
+                    currentMatchCount += 1
+                } catch (e) {
+                    if (e == 'wrong queue') {
+                        console.log(`${matchId}: wrong queue`)
+                        matchId += 1
+                        failedAttempts = 0
+                    } else if (e?.response?.status == 404) {
+                        console.log(`${matchId}: not found`)
+                        matchId += skipPattern[failedAttempts]
+                        failedAttempts += 1
+                    } else {
+                        throw e
+                    }
+                }
+                await new Promise(res => setTimeout(() => res(), 500))
+            }
+        }
 
 		console.log('refreshing data')
 		this.currentlyRefreshing = true
 
-		return new Promise((resolve, reject) => {
-			clearOldMatches()
-			.then(res => {
-				return getInitialPlayers()
-			})
-			.then(res => {
-				return collectMatches(res)
-			})
-			.then(res => {
-				this.currentlyRefreshing = false
-				resolve()
-				return this.getStats()
-			})
-			.catch(err => {
-				console.log(err)
-				this.currentlyRefreshing = false
-				reject(err)
-			})
-		})
+        await clearOldMatches()
+        await collectMatches()
+        this.currentlyRefreshing = false
+        try {
+            // await this.getStats()
+        } catch (err)  {
+            console.log(err)
+            this.currentlyRefreshing = false
+            throw err
+        }
 
 	}
 
