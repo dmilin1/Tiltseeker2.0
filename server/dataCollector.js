@@ -646,7 +646,7 @@ class DataCollector {
         await collectMatches()
         this.currentlyRefreshing = false
         try {
-            // await this.getStats()
+            await this.getStats()
         } catch (err)  {
             console.log(err)
             this.currentlyRefreshing = false
