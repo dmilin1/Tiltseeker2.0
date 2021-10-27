@@ -4,6 +4,7 @@ import { withRouter } from "react-router-dom"
 import axios from 'axios'
 import axiosRetry from 'axios-retry';
 import ProgressBar from './../components/ProgressBar.js'
+import { regionMap } from './../constants.js'
 
 import { FontSize, ItemSize, theme } from './../Styling.js'
 
@@ -150,7 +151,7 @@ class Tiltseek extends React.Component {
 			var historyLookups = []
 			for (var [i, participant] of Object.entries(currentGame.participants)) {
 				historyLookups.push(
-					axios.get('/lol/match/v4/matchlists/by-account/' + accountInfo[i].accountId + '?champion=' + participant.championId + '&endIndex=30&queue=400&queue=420&queue=430&queue=440')
+					axios.get(`http://localhost:3001/api/${regionMap[this.state.region]}/lol/match/v5/matches/by-puuid/${accountInfo[i].puuid}/ids?start=0&count=5&queue=420`)
 					.catch(err => {
 						console.log('err')
 					})
@@ -161,20 +162,16 @@ class Tiltseek extends React.Component {
 		.then(res => {
 			var fullHistoryLookups = []
 			console.log(res)
-			var matchCount = res.reduce((total, player) => total + (player ? player.data.matches.length : 0), 0)
+			var matchCount = res.reduce((total, player) => total + (player ? player.data.length : 0), 0)
 			for (var player of res) {
 				var matchSet = []
 				if (player === undefined) {
 					fullHistoryLookups.push(undefined)
 				} else {
-					for (var match of player.data.matches.filter(match => match.platformId.toLowerCase() === this.state.region.toLowerCase())) {
+					for (var match of player.data) {
 						matchSet.push(new Promise((resolve, reject) => {
 							// fix to load matches that were played in different regions
-							axios.get(
-								axios.defaults.baseURL.replace(/[^/]*$/, '') +
-								match.platformId.toLowerCase() +
-								'/lol/match/v4/matches/' + match.gameId
-							)
+							axios.get(`http://localhost:3001/api/${regionMap[this.state.region]}/lol/match/v5/matches/${match}`)
 							.then(data => {
 								this.incrementProgress(15/matchCount)
 								resolve(data)
@@ -188,6 +185,7 @@ class Tiltseek extends React.Component {
 			return axios.all(fullHistoryLookups)
 		})
 		.then(res => {
+            console.log(res)
 			this.incrementProgress(1)
 			championHistories = res.map((hist) => hist === undefined ? undefined : hist.map((game) => {
 				return game.data
@@ -203,7 +201,7 @@ class Tiltseek extends React.Component {
 			var historyLookups = []
 			for (var [i, participant] of Object.entries(currentGame.participants)) {
 				historyLookups.push(
-					axios.get('/lol/match/v4/matchlists/by-account/' + accountInfo[i].accountId + '?endIndex=5')
+					axios.get(`http://localhost:3001/api/${regionMap[this.state.region]}/lol/match/v5/matches/by-puuid/${accountInfo[i].puuid}/ids?start=0&count=5`)
 					.catch(err => {
 						console.log('err')
 					})
@@ -220,8 +218,8 @@ class Tiltseek extends React.Component {
 				if (player === undefined) {
 					fullHistoryLookups.push(undefined)
 				} else {
-					for (var match of player.data.matches) {
-						matchSet.push(axios.get('/lol/match/v4/matches/' + match.gameId))
+					for (var match of player.data) {
+						matchSet.push(axios.get(`http://localhost:3001/api/${regionMap[this.state.region]}/lol/match/v5/matches/${match}`))
 						// axios.get('/lol/match/v4/matches/' + match.gameId)
 						// .then(res => {})
 						// .catch(err => {console.log(err)})
@@ -284,12 +282,12 @@ class Tiltseek extends React.Component {
 
 		.catch(err => {
 			console.log(err)
-			if (err.response.config.url.includes('/lol/summoner/v4/summoners/by-name/') && err.response.status === 404) {
+			if (err?.response?.config?.url.includes('/lol/summoner/v4/summoners/by-name/') && err.response.status === 404) {
 				errMsg = `An account with name "${this.state.summonerName}" does not exist. Make sure the region is correct!`
-			} else if (err.response.config.url.includes('/lol/spectator/v4/active-games/by-summoner/') && err.response.status === 404) {
+			} else if (err?.response?.config?.url.includes('/lol/spectator/v4/active-games/by-summoner/') && err.response.status === 404) {
 				errMsg = `"${this.state.summonerName}" is not in game. Make sure the region is correct!`
 			} else {
-				errMsg = err.response.statusText
+				errMsg = err?.response?.statusText
 			}
 			console.log(errMsg)
 			this.setState({ errMsg: errMsg, stage: 'error' })
@@ -402,9 +400,9 @@ class DataDisplay extends React.Component {
 		var history = this.props.lossStreakHistories[player[1]]
 		var lastGameTime = Date.now()
 		for (var i = 0; i < history.length; i++) {
-			var win = history[i].participants[history[i].participantIdentities.filter(participant => {
-				return participant.player.summonerId == player[0].summonerId
-			})[0].participantId - 1].stats.win
+			var win = history[i].info.participants.filter(participant => {
+				return participant.summonerId == player[0].summonerId
+			})[0].win
 			if (!win && lastGameTime - history[i].gameCreation < 12 * 60 * 60 * 1000) {
 				streak += 1
 				lastGameTime = history[i].gameCreation

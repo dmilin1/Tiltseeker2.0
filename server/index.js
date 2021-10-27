@@ -75,12 +75,15 @@ startListening = () => {
 		// Check if region is valid to prevent domain hacks
 		if (['na1', 'euw1', 'eun1',
 		'br1', 'tr1', 'ru', 'la1',
-		'la2', 'oc1', 'kr', 'jp1'].indexOf(req.params.region) === -1) {
+		'la2', 'oc1', 'kr', 'jp1',
+        'americas', 'europe', 'asia'].indexOf(req.params.region) === -1) {
 			res.status(601).send('invalid region')
 			return
 		}
 
 		apiRequest = '/' + req.originalUrl.split('/').slice(3).join('/')
+
+        console.log('https://' + req.params.region + '.api.riotgames.com' + apiRequest)
 
 		axios.get('https://' + req.params.region + '.api.riotgames.com' + apiRequest, {
 			headers: {
