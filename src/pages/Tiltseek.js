@@ -55,8 +55,10 @@ class Tiltseek extends React.Component {
 		}
 		if (process.env.NODE_ENV === 'development') {
 			axios.defaults.baseURL = 'http://localhost:3001/api/' + this.state.region
+            this.regionlessBaseURL = 'http://localhost:3001/api/'
 		} else {
 			axios.defaults.baseURL = window.location.protocol + '//' + window.location.host + '/api/' + this.state.region
+            this.regionlessBaseURL = window.location.protocol + '//' + window.location.host + '/api/'
 		}
 	}
 
@@ -151,7 +153,7 @@ class Tiltseek extends React.Component {
 			var historyLookups = []
 			for (var [i, participant] of Object.entries(currentGame.participants)) {
 				historyLookups.push(
-					axios.get(`http://localhost:3001/api/${regionMap[this.state.region]}/lol/match/v5/matches/by-puuid/${accountInfo[i].puuid}/ids?start=0&count=5&queue=420`)
+					axios.get(`${this.regionlessBaseURL}${regionMap[this.state.region]}/lol/match/v5/matches/by-puuid/${accountInfo[i].puuid}/ids?start=0&count=5&queue=420`)
 					.catch(err => {
 						console.log('err')
 					})
@@ -171,7 +173,7 @@ class Tiltseek extends React.Component {
 					for (var match of player.data) {
 						matchSet.push(new Promise((resolve, reject) => {
 							// fix to load matches that were played in different regions
-							axios.get(`http://localhost:3001/api/${regionMap[this.state.region]}/lol/match/v5/matches/${match}`)
+							axios.get(`${this.regionlessBaseURL}${regionMap[this.state.region]}/lol/match/v5/matches/${match}`)
 							.then(data => {
 								this.incrementProgress(15/matchCount)
 								resolve(data)
@@ -201,7 +203,7 @@ class Tiltseek extends React.Component {
 			var historyLookups = []
 			for (var [i, participant] of Object.entries(currentGame.participants)) {
 				historyLookups.push(
-					axios.get(`http://localhost:3001/api/${regionMap[this.state.region]}/lol/match/v5/matches/by-puuid/${accountInfo[i].puuid}/ids?start=0&count=5`)
+					axios.get(`${this.regionlessBaseURL}${regionMap[this.state.region]}/lol/match/v5/matches/by-puuid/${accountInfo[i].puuid}/ids?start=0&count=5`)
 					.catch(err => {
 						console.log('err')
 					})
@@ -219,7 +221,7 @@ class Tiltseek extends React.Component {
 					fullHistoryLookups.push(undefined)
 				} else {
 					for (var match of player.data) {
-						matchSet.push(axios.get(`http://localhost:3001/api/${regionMap[this.state.region]}/lol/match/v5/matches/${match}`))
+						matchSet.push(axios.get(`${this.regionlessBaseURL}${regionMap[this.state.region]}/lol/match/v5/matches/${match}`))
 						// axios.get('/lol/match/v4/matches/' + match.gameId)
 						// .then(res => {})
 						// .catch(err => {console.log(err)})
