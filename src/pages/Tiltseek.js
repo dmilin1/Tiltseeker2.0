@@ -643,13 +643,13 @@ class DataDisplay extends React.Component {
 		var dmgTrue = 0
 		var dmgTotal = 0
 
-		team.map(player => {
-			dmgMagic += this.props.championStats[player[0].championId].magicDamageDealtToChampionPerSecsAvg
-			dmgPhysical += this.props.championStats[player[0].championId].physicalDamageDealtToChampionsPerSecAvg
-			dmgTrue += this.props.championStats[player[0].championId].trueDamageDealtToChampionsPerSecAvg
-			dmgTotal += this.props.championStats[player[0].championId].magicDamageDealtToChampionPerSecsAvg
-			dmgTotal += this.props.championStats[player[0].championId].physicalDamageDealtToChampionsPerSecAvg
-			dmgTotal += this.props.championStats[player[0].championId].trueDamageDealtToChampionsPerSecAvg
+		team.forEach(player => {
+			dmgMagic += this.props.championStats[player[0].championId]?.magicDamageDealtToChampionPerSecsAvg
+			dmgPhysical += this.props.championStats[player[0].championId]?.physicalDamageDealtToChampionsPerSecAvg
+			dmgTrue += this.props.championStats[player[0].championId]?.trueDamageDealtToChampionsPerSecAvg
+			dmgTotal += this.props.championStats[player[0].championId]?.magicDamageDealtToChampionPerSecsAvg
+			dmgTotal += this.props.championStats[player[0].championId]?.physicalDamageDealtToChampionsPerSecAvg
+			dmgTotal += this.props.championStats[player[0].championId]?.trueDamageDealtToChampionsPerSecAvg
 		})
 
 		return (

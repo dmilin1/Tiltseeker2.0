@@ -272,7 +272,6 @@ class DataCollector {
 
 		console.log('fetched stats from lolalytics')
 
-
 		var matchups = {}
 
 		championIds.forEach((champA, i) => championIds.slice(i).forEach((champB, i) => {
@@ -389,7 +388,6 @@ class DataCollector {
 			}
 		}])
 
-
 		try {
             var goodData = await this.getGoodData()
 
@@ -472,13 +470,15 @@ class DataCollector {
 		}
 
 		var getInitialMatchId = async () => {
+            console.log((await Match.find().sort({ matchId: -1 }).limit(1)) ?? 'derp')
 			var currentGameId = (await axios.get('https://na1.api.riotgames.com/lol/spectator/v4/featured-games', {
                 headers: {
                     'X-Riot-Token': process.env.RIOT_API
                 }
             })).data.gameList.filter(game => game.gameQueueConfigId == 420)[0].gameId
 
-            var newestInDB = ((await Match.find().sort({ matchId: -1 }).limit(1)) ?? [{ matchId: 0 }])[0].matchId + 1
+
+            var newestInDB = (await Match.find().sort({ matchId: -1 }).limit(1)).concat([{ matchId: 0 }])[0].matchId + 1
             
             return Math.max(newestInDB, currentGameId - 50_000) // roughly 8 hours old
 		}
