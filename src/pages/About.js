@@ -29,7 +29,7 @@ class About extends React.Component {
 					<div
 						style={{ margin: '0px 10%' }}
 					>
-						{`I'm a Software Engineering graduate student at San Jose State University specializing in Data Science. League of Legends and computing have been longtime passions of mine and Tiltseeker is a culmination of my biggest hobbies.`}
+						{`I'm a Software Engineering graduate from San Jose State University specializing in Full Stack Web Development and Data Science. League of Legends and computing have been longtime passions of mine and Tiltseeker is a culmination of my biggest hobbies.`}
 					</div>
 					<br/>
 					<br/>
@@ -41,18 +41,18 @@ class About extends React.Component {
 					<br/>
 					<br/>
 					<br/>
-					<h4>{`Hire Me!`}</h4>
-					{`While I am an active student, I'm always looking for opportunities! My dream job is to work in eSports analytics or on a machine learning project that could help humanity. If you or someone you know can help make that happen, I'd love to hear from you!`}
+					<h4>{`Contact Me!`}</h4>
+					{`I love hearing from others who have a passion for data in gaming. Whether you're searching for an advertising partner, looking for an API to use to collect stats, or simply working on your senior project and need ideas, I'd love to chat! Reach out at any of the links below, or through the Tiltseeker Discord channel (link the in navbar above).`}
 					<br/>
 					<br/>
 					<br/>
-					<a href="https://github.com/dmilin1" target="_blank" rel="noopener noreferrer">GitHub</a>
+					<a className={css(styles.contactLink)} href="https://github.com/dmilin1" target="_blank" rel="noopener noreferrer">GitHub</a>
 					<br/>
 					<br/>
-					<a href="https://www.linkedin.com/in/dimitrie-milinovich-359b1215b/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+					<a className={css(styles.contactLink)} href="https://www.linkedin.com/in/dimitrie-milinovich-359b1215b/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
 					<br/>
 					<br/>
-					<a href="mailto:contact@tiltseeker.com" target="_blank" rel="noopener noreferrer">Email</a>
+					<a className={css(styles.contactLink)} href="mailto:contact@tiltseeker.com" target="_blank" rel="noopener noreferrer">Email</a>
 					<br/>
 					<br/>
 					{`League NA: dmilin (add me and we can duo!)`}
@@ -104,7 +104,16 @@ var loadStyles = (t) => {
 			'@media (min-width: 1100px)': {
 				width: '75%',
 			},
-		}
+		},
+        contactLink: {
+            color: theme('text1', t),
+            backgroundColor: theme('primary1', t),
+            padding: 5,
+            borderRadius: 5,
+            borderColor: theme('accent1', t),
+            borderStyle: 'solid',
+            borderWidth: 2,
+        }
 	});
 }
 

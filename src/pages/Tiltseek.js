@@ -1,366 +1,264 @@
-import React from 'react'
+import React, { useState, useEffect, useContext } from 'react'
 import { StyleSheet, css } from 'aphrodite'
-import { withRouter } from "react-router-dom"
+import { withRouter, useHistory } from "react-router-dom"
 import axios from 'axios'
 import axiosRetry from 'axios-retry';
-import ProgressBar from './../components/ProgressBar.js'
-import { regionMap } from './../constants.js'
 
-import { FontSize, ItemSize, theme } from './../Styling.js'
+import GlobalContext from '../GlobalContext.js';
+import ProgressBar from '../components/ProgressBar.js'
+import { regionMap } from '../constants.js'
+import { FontSize, ItemSize, theme } from '../Styling.js'
+import WinRateCalc from '../utils/WinRateCalc'
 
 axiosRetry(axios, {
 	retries: 3,
 	retryDelay: axiosRetry.exponentialDelay,
 });
 
+const matchesPerPlayer = 20
 
-class Tiltseek extends React.Component {
+function Tiltseek(props) {
+    const quotes = [
+        `"Stats are good, winning is better" - Faker... probably`,
+        `"We'll use Tiltseeker for week 2 at Worlds" - Every NA Team`,
+        `"Please be our friend" - Amumu`,
+        `"Camp someone who flames as much as Brand" - Bjergsen... probably`,
+        `"Camp someone toxic. Like my sister, Cassiopeia" - Katarina`,
+        `"Would you like a tent?" - Losing Midlaner`,
+        `"Our midlaner has less vision than I do" - Lee Sin`,
+        `"With Tiltseeker, you can transform into something better" - Kayn`,
+        `"Camp someone who has no mana" - Tyler1... maybe`,
+        `"Keep camping. See what happens." - Someone you should keep camping`,
+        `"Tiltseeker seems fair and balanced." - CertainlyT`,
+    ]
 
-	constructor(props) {
-		super(props)
+    const { axios, globalTheme } = useContext(GlobalContext)
+    const history = useHistory()
 
-		var quotes = [
-			`"Stats are good, winning is better" - Faker... probably`,
-			`"We'll use Tiltseeker for week 2 at Worlds" - Every NA Team`,
-			`"Please be our friend" - Amumu`,
-			`"Camp someone who flames as much as Brand" - Bjergsen... probably`,
-			`"Camp someone toxic. Like my sister, Cassiopeia" - Katarina`,
-			`"Would you like a tent?" - Losing Midlaner`,
-			`"Our midlaner has less vision than I do" - Lee Sin`,
-			`"With Tiltseeker, you can transform into something better" - Kayn`,
-			`"Camp someone who has no mana" - Tyler1... maybe`,
-			`"Keep camping. See what happens." - Someone you should keep camping`,
-			`"Tiltseeker seems fair and balanced." - CertainlyT`,
-		]
+    const [ quote, setQuote ] = useState(quotes[Math.floor(Math.random() * quotes.length)])
+    const [ progress, setProgress ] = useState(0)
+    const [ stage, setStage ] = useState({ state: 'loading', error: '' })
+    const [ data, setData ] = useState({
+        region: (new URLSearchParams(window.location.search)).get('region'),
+        summonerName: (new URLSearchParams(window.location.search)).get('summonerName'),
+        desktop: (new URLSearchParams(window.location.search)).get('desktop'),
+    })
+    
+    const fetchData = async () => {
+        let newData = {}
 
-		var params = new URLSearchParams(this.props.location.search)
-		this.state = {
-			region: params.get('region'),
-			summonerName: params.get('summonerName'),
-			stage: 'loading',
-			progress: 0,
-			totalProgress: 28,
-			quote: quotes[Math.floor(Math.random() * quotes.length)],
-			errMsg: '',
+        const callStack = [{
+            progressPts: 1,
+            func: async ({ breakEarly }) => {
+                try {
+                    newData.userSummonerData = (await axios.get(`${data.region}/lol/summoner/v4/summoners/by-name/${data.summonerName}`))?.data
+                } catch (e) {
+                    if (e?.response?.status === 404) {
+                        setStage({ state: 'error', error: `An account with name "${data.summonerName}" does not exist. Make sure the region is correct!` })
+                        breakEarly()
+                    } else {
+                        throw e
+                    }
+                }
+            }
+        }, {
+            progressPts: 1,
+            func: async ({ breakEarly }) => {
+                try {
+                    newData.currentGame = (await axios.get(`${data.region}/lol/spectator/v4/active-games/by-summoner/${newData.userSummonerData.id}`)).data
+                } catch (e) {
+                    if (e?.response?.status === 404) {
+                        setStage({ state: 'error', error: `"${data.summonerName}" is not in game. Make sure the region is correct!` })
+                        breakEarly()
+                    } else {
+                        throw e
+                    }
+                }
+            }
+        }, {
+            progressPts: 10,
+            func: async ({ partialProgress, ptsAlloted }) => {
+                let i = 0
+                newData.accountInfos = await Promise.all(newData.currentGame.participants.map(async participant => {
+                    let summoner = (await axios.get(`${data.region}/lol/summoner/v4/summoners/${participant.summonerId}`)).data
+                    i += 1
+                    partialProgress(i / ptsAlloted)
+                    return summoner
+                }))
+            }
+        }, {
+            progressPts: 10,
+            func: async ({ partialProgress, ptsAlloted }) => {
+                let i = 0
+                newData.championMasteries = await Promise.all(newData.currentGame.participants.map(async participant => {
+                    let mastery = null
+                    try {
+                        mastery = (await axios.get(`${data.region}/lol/champion-mastery/v4/champion-masteries/by-summoner/${participant.summonerId}/by-champion/${participant.championId}`)).data
+                    } catch (e) {
+                        if (e?.response?.status !== 404) {
+                            throw e
+                        }
+                    }
+                    i += 1
+                    partialProgress(i / ptsAlloted)
+                    return mastery
+                }))
+            }
+        }, {
+            progressPts: 10,
+            func: async ({ partialProgress, ptsAlloted }) => {
+                let i = 0
+                newData.rankedInfo = await Promise.all(newData.currentGame.participants.map(async participant => {
+                    let ranked = null
+                    try {
+                        ranked = (await axios.get(`${data.region}/lol/league/v4/entries/by-summoner/${participant.summonerId}`)).data
+                    } catch (e) {
+                        if (e?.response?.status !== 404) {
+                            throw e
+                        }
+                    }
+                    i += 1
+                    partialProgress(i / ptsAlloted)
+                    return ranked
+                }))
+            }
+        }, {
+            progressPts: 10 * matchesPerPlayer,
+            func: async ({ partialProgress, ptsAlloted }) => {
+                let i = 0
+                newData.matchHistories = await Promise.all(newData.currentGame.participants.map(async (participant, playerNum) => {
+                    let matchIds = (await axios.get(`${regionMap[data.region]}/lol/match/v5/matches/by-puuid/${newData.accountInfos[playerNum].puuid}/ids?start=0&count=${matchesPerPlayer}&queue=420`)).data
+                    let matches = await Promise.all(matchIds.map(async matchId => {
+                        let match = (await axios.get(`${regionMap[data.region]}/lol/match/v5/matches/${matchId}`)).data
+                        i += 1
+                        partialProgress(i / ptsAlloted)
+                        return match
+                    }))
+                    i += matchesPerPlayer - matches.length
+                    return matches
+                }))
+            }
+        }, {
+            progressPts: 1,
+            func: async () => {
+                newData.currentGameVersion = (await axios.get(`https://ddragon.leagueoflegends.com/api/versions.json`)).data[0]
+            }
+        }, {
+            progressPts: 1,
+            func: async () => {
+                newData.championData = (await axios.get(`https://ddragon.leagueoflegends.com/cdn/${newData.currentGameVersion}/data/en_US/champion.json`)).data.data
+                for (let champ of Object.values(newData.championData)) {
+                    newData.championData[champ.key] = champ
+                }
+            }
+        }, {
+            progressPts: 1,
+            func: async () => {
+                newData.champStats = {}
+                let res = (await axios.get(`na/stats`)).data
+                for (let champ of res.champStats) {
+                    newData.champStats[champ._id] = champ
+                }
+                newData.detailedChampStats = res.detailedChampStats
+                newData.matchups = res.matchups
+            }
+        }]
 
-			summonerData: null,
-			currentGame: null,
-			championMasteries: null,
-			rankedInfo: null,
-			championHistories: null,
-			lossStreakHistories: null,
-			currentGameVersion: null,
-			championData: null,
-			championStats: null,
-		}
-		if (process.env.NODE_ENV === 'development') {
-			axios.defaults.baseURL = 'http://localhost:3001/api/' + this.state.region
-            this.regionlessBaseURL = 'http://localhost:3001/api/'
-		} else {
-			axios.defaults.baseURL = window.location.protocol + '//' + window.location.host + '/api/' + this.state.region
-            this.regionlessBaseURL = window.location.protocol + '//' + window.location.host + '/api/'
-		}
-	}
+        const calcProgressToPoint = (i, currPercent = 1) => {
+            let total = callStack.reduce((total, curr) => total + curr.progressPts, 0)
+            return ( callStack.slice(0, i).reduce((total, curr) => total + curr.progressPts, 0) + currPercent * callStack[i].progressPts ) / total
+        }
 
-	incrementProgress = (amt=1) => {
-		this.setState(state => {
-			return { progress: this.state.progress + amt }
-		})
-	}
+        let loadedSuccessfully = false
+        for (let [ i, call ] of callStack.entries()) {
+            let shouldStop = false
+            await call.func({
+                partialProgress: (percent) => setProgress(calcProgressToPoint(i, percent)),
+                breakEarly: () => shouldStop = true,
+                ptsAlloted: call.progressPts
+            })
+            if (!call.usesPartialProgress) {
+                setProgress(calcProgressToPoint(i))
+            }
+            if (shouldStop) {
+                break
+            }
+            if (i == callStack.length - 1) {
+                loadedSuccessfully = true
+            }
+        }
 
-	componentDidMount() {
+        console.log(newData)
 
-		var summonerData = null
-		var currentGame = null
-		var championMasteries = []
-		var accountInfo = null
-		var rankedInfo = []
-		var championHistories = null
-		var lossStreakHistories = null
+        setData({
+            ...data,
+            ...newData
+        })
+        if (loadedSuccessfully) {
+            setStage({ state: 'loaded' })
+        }
+    }
 
-		var currentGameVersion = null
-		var championData = null
-		var championStats = {}
+    useEffect(() => {(async () => {
+        await fetchData()
+    })()}, [])
+    loadStyles(globalTheme)
 
-		var errMsg = ''
-
-		axios.get('/lol/summoner/v4/summoners/by-name/' + this.state.summonerName)
-		.then(res => {
-			this.incrementProgress(1)
-			summonerData = res.data
-			console.log(summonerData)
-			return axios.get('/lol/spectator/v4/active-games/by-summoner/' + summonerData.id)
-		})
-
-		// Get all players' account info
-		.then((res) => {
-			this.incrementProgress(1)
-			currentGame = res.data
-			console.log(currentGame)
-			var accountInfoLookups = []
-			for (var [i, participant] of Object.entries(currentGame.participants)) {
-				accountInfoLookups.push(axios.get('/lol/summoner/v4/summoners/' + participant.summonerId))
-			}
-			return axios.all(accountInfoLookups)
-		})
-
-		// Load champion masteries
-		.then(res => {
-			this.incrementProgress(1)
-			accountInfo = res.map(single => {
-				return single.data
-			})
-			console.log(accountInfo)
-			var masteryLookups = []
-			console.log(currentGame.participants)
-			for (let [i, participant] of Object.entries(currentGame.participants)) {
-				masteryLookups.push(
-					axios.get('/lol/champion-mastery/v4/champion-masteries/by-summoner/' + participant.summonerId + '/by-champion/' + participant.championId)
-					.then((res) => {
-						championMasteries[i] = res.data
-					}).
-					catch((err) => {
-						console.log(err)
-					})
-				)
-			}
-			return axios.all([res, axios.all(masteryLookups)])
-		})
-
-		// Load ranked info
-		.then(res => {
-			this.incrementProgress(1)
-			var rankedLookups = []
-			for (let [i, participant] of Object.entries(currentGame.participants)) {
-				rankedLookups.push(
-					axios.get('/lol/league/v4/entries/by-summoner/' + participant.summonerId)
-					.then((res) => {
-						rankedInfo[i] = res.data
-					}).
-					catch((err) => {
-						console.log(err)
-					})
-				)
-			}
-			return axios.all([res, axios.all(rankedLookups)])
-		})
-
-		//  Load championHistories with last games played on current champion
-		.then(res => {
-			this.incrementProgress(1)
-			console.log(rankedInfo)
-			console.log(championMasteries)
-			var historyLookups = []
-			for (var [i, participant] of Object.entries(currentGame.participants)) {
-				historyLookups.push(
-					axios.get(`${this.regionlessBaseURL}${regionMap[this.state.region]}/lol/match/v5/matches/by-puuid/${accountInfo[i].puuid}/ids?start=0&count=5&queue=420`)
-					.catch(err => {
-						console.log('err')
-					})
-				)
-			}
-			return axios.all(historyLookups)
-		})
-		.then(res => {
-			var fullHistoryLookups = []
-			console.log(res)
-			var matchCount = res.reduce((total, player) => total + (player ? player.data.length : 0), 0)
-			for (var player of res) {
-				var matchSet = []
-				if (player === undefined) {
-					fullHistoryLookups.push(undefined)
-				} else {
-					for (var match of player.data) {
-						matchSet.push(new Promise((resolve, reject) => {
-							// fix to load matches that were played in different regions
-							axios.get(`${this.regionlessBaseURL}${regionMap[this.state.region]}/lol/match/v5/matches/${match}`)
-							.then(data => {
-								this.incrementProgress(15/matchCount)
-								resolve(data)
-							})
-							.catch(err => reject(err))
-						}))
-					}
-					fullHistoryLookups.push(axios.all(matchSet))
-				}
-			}
-			return axios.all(fullHistoryLookups)
-		})
-		.then(res => {
-            console.log(res)
-			this.incrementProgress(1)
-			championHistories = res.map((hist) => hist === undefined ? undefined : hist.map((game) => {
-				return game.data
-			}))
-			console.log(championHistories)
-			return res
-		})
-
-		// Load lossStreakHistories with last 5 games for each account
-		.then(res => {
-			this.incrementProgress(1)
-			console.log(championMasteries)
-			var historyLookups = []
-			for (var [i, participant] of Object.entries(currentGame.participants)) {
-				historyLookups.push(
-					axios.get(`${this.regionlessBaseURL}${regionMap[this.state.region]}/lol/match/v5/matches/by-puuid/${accountInfo[i].puuid}/ids?start=0&count=5`)
-					.catch(err => {
-						console.log('err')
-					})
-				)
-			}
-			return axios.all(historyLookups)
-		})
-		.then(res => {
-			this.incrementProgress(1)
-			var fullHistoryLookups = []
-			console.log(res)
-			for (var player of res) {
-				var matchSet = []
-				if (player === undefined) {
-					fullHistoryLookups.push(undefined)
-				} else {
-					for (var match of player.data) {
-						matchSet.push(axios.get(`${this.regionlessBaseURL}${regionMap[this.state.region]}/lol/match/v5/matches/${match}`))
-						// axios.get('/lol/match/v4/matches/' + match.gameId)
-						// .then(res => {})
-						// .catch(err => {console.log(err)})
-					}
-					fullHistoryLookups.push(axios.all(matchSet))
-				}
-			}
-			return axios.all(fullHistoryLookups)
-		})
-		.then(res => {
-			this.incrementProgress(1)
-			lossStreakHistories = res.map((hist) => hist === undefined ? undefined : hist.map((game) => {
-				return game.data
-			}))
-			console.log(lossStreakHistories)
-			return res
-		})
-
-		// Load currentGameVersion, championData, and championStats
-		.then(res => {
-			this.incrementProgress(1)
-			return axios.get('https://ddragon.leagueoflegends.com/api/versions.json')
-		})
-		.then(res => {
-			this.incrementProgress(1)
-			currentGameVersion = res.data[0]
-			return axios.get(`https://ddragon.leagueoflegends.com/cdn/${currentGameVersion}/data/en_US/champion.json`)
-		})
-		.then(res => {
-			this.incrementProgress(1)
-			championData = res.data.data
-			for (var champ of Object.keys(championData)) {
-				championData[championData[champ].key] = championData[champ]
-			}
-			console.log(res.data.data)
-			return axios.get('/stats')
-		})
-		.then(res => {
-			this.incrementProgress(1)
-			console.log(res.data)
-			for (var champ of res.data.champStats) {
-				championStats[champ._id] = champ
-			}
-			console.log(championStats)
-			this.setState({
-				summonerData: summonerData,
-				currentGame: currentGame,
-				championMasteries: championMasteries,
-				rankedInfo: rankedInfo,
-				championHistories: championHistories,
-				lossStreakHistories: lossStreakHistories,
-				currentGameVersion: currentGameVersion,
-				championData: championData,
-				championStats: championStats,
-				stage: 'loaded',
-			})
-			return
-		})
-
-
-		.catch(err => {
-			console.log(err)
-			if (err?.response?.config?.url.includes('/lol/summoner/v4/summoners/by-name/') && err.response.status === 404) {
-				errMsg = `An account with name "${this.state.summonerName}" does not exist. Make sure the region is correct!`
-			} else if (err?.response?.config?.url.includes('/lol/spectator/v4/active-games/by-summoner/') && err.response.status === 404) {
-				errMsg = `"${this.state.summonerName}" is not in game. Make sure the region is correct!`
-			} else {
-				errMsg = err?.response?.statusText
-			}
-			console.log(errMsg)
-			this.setState({ errMsg: errMsg, stage: 'error' })
-		})
-	}
-
-	render() {
-		loadStyles(this.props.theme)
-		return (
-			<div className={!this.props.desktop ? css(styles.container) : css(styles.container, styles.containerDesktop)}>
-				{ this.state.stage == 'loading' ? (
-					<>
-						<div className={css(styles.loadingText)}>
-							{this.state.quote}
-						</div>
-						<ProgressBar
-							progress={this.state.progress}
-							percent={this.state.totalProgress == 0 ? 0 : this.state.progress/this.state.totalProgress}
-							theme={this.props.theme}
-						/>
-					</>
-				) : null }
-				{ this.state.stage == 'loaded' ? (
-					<DataDisplay
-						theme={this.props.theme}
-						summonerData={this.state.summonerData}
-						currentGame={this.state.currentGame}
-						championMasteries={this.state.championMasteries}
-						rankedInfo={this.state.rankedInfo}
-						championHistories={this.state.championHistories}
-						lossStreakHistories={this.state.lossStreakHistories}
-						currentGameVersion={this.state.currentGameVersion}
-						championData={this.state.championData}
-						championStats={this.state.championStats}
-					/>
-				) : null }
-				{ this.state.stage == 'error' ? (
-					<>
-						<div className={css(styles.errContainer)}>
-							<div className={css(styles.errText)}>
-								{this.state.errMsg}
-							</div>
-						</div>
-						<div className={css(styles.tryAgainButton)}>
-							<div
-								className={css(styles.tryAgainText)}
-								onClick={() => this.props.history.push('/')}
-							>
-								{'Back'}
-							</div>
-						</div>
-					</>
-				) : null }
+    return (
+        <div className={css(styles.container, data.desktop ? styles.containerDesktop : undefined)}>
+            { stage.state == 'loading' ? (
+                <>
+                    <div className={css(styles.loadingText)}>
+                        {quote}
+                    </div>
+                    <ProgressBar
+                        percent={progress}
+                        theme={globalTheme}
+                    />
+                </>
+            ) : null }
+            { stage.state == 'loaded' ? (
+                <DataDisplay data={data}/>
+            ) : null }
+            { stage.state == 'error' ? (
+                <>
+                    <div className={css(styles.errContainer)}>
+                        <div className={css(styles.errText)}>
+                            { stage.error }
+                        </div>
+                    </div>
+                    <div className={css(styles.tryAgainButton)}>
+                        <div
+                            className={css(styles.tryAgainText)}
+                            onClick={() => history.push('/')}
+                        >
+                            {'Back'}
+                        </div>
+                    </div>
+                </>
+            ) : null }
 	    </div>
-	  );
-	}
+    );
 }
 
-class DataDisplay extends React.Component {
+function DataDisplay(props) {
 
-	constructor(props) {
-		super(props)
-		this.state = {
-			mouseX: 0,
-			mouseY: 0,
-			popupText: null,
-		}
-	}
+    const { globalTheme } = useContext(GlobalContext)
+
+    let { data } = props
+
+    const [ teams, setTeams ] = useState(0)
+
+    let setPopupText = (txt, mouse) => {
+        document.querySelector('#infoBoxContainer').style.display = txt ? 'flex' : 'none'
+        document.querySelector('#infoBoxContainer').style.top = `${mouse.clientY + 20}px`
+        document.querySelector('#infoBoxContainer').style.left = `${mouse.clientX + 3}px`
+        document.querySelector('#infoBox').innerText = txt
+    }
 
 
-	getPercentile = (val, avg, std) => {
+	let getPercentile = (val, avg, variance) => {
+        let std = variance ** 0.5
 		var getZPercentile = (z) => {
 
 			// z == number of standard deviations from the mean
@@ -397,27 +295,47 @@ class DataDisplay extends React.Component {
 		return getZPercentile((val-avg)/std)
 	}
 
-	calcLosingStreak = (player, numeric=false) => {
-		var streak = 0
-		var history = this.props.lossStreakHistories[player[1]]
-		var lastGameTime = Date.now()
-		for (var i = 0; i < history.length; i++) {
-			var win = history[i].info.participants.filter(participant => {
-				return participant.summonerId == player[0].summonerId
+    let getPlayerPercentile = (player, trait) => {
+        let [ playerData, playerNum ] = player
+        if (!data.matchHistories[playerNum]) {
+            return 0.5
+        }
+        let percentiles = []
+        for (let match of data.matchHistories[playerNum]) {
+            let participant = match.info.participants.filter(p => p.summonerId === playerData.summonerId)[0]
+            let champId = participant.championId
+            let traitWithoutTime = trait.split('PerSec')[0]
+            percentiles.push(getPercentile(
+                trait === traitWithoutTime ? participant[trait] : participant[traitWithoutTime] / participant.timePlayed,
+                data.detailedChampStats?.[champId]?.[`${trait}Avg`],
+                (data.detailedChampStats?.[champId]?.[`${trait}Variance`]) * (trait === traitWithoutTime ? 1 : data.detailedChampStats?.[champId]?.timePlayedAvg)
+            ))
+        }
+        return percentiles
+    }
+
+
+	let calcLosingStreak = (player, numeric=false) => {
+        let [ playerData, playerNum ] = player
+		let streak = 0
+		let history = data.matchHistories[playerNum]
+		let lastGameTime = Date.now()
+		for (let match of history) {
+			let win = match.info.participants.filter(participant => {
+				return participant.summonerId == playerData.summonerId
 			})[0].win
-			if (!win && lastGameTime - history[i].gameCreation < 12 * 60 * 60 * 1000) {
-				streak += 1
-				lastGameTime = history[i].gameCreation
-			} else {
-				break
+			if (win || lastGameTime - match.gameCreation < 12 * 60 * 60 * 1000) {
+                break
 			}
+            streak += 1
+            lastGameTime = match.gameCreation
 		}
 		return streak
 	}
 
-	calcWinRate = (player, numeric=false) => {
+	let calcWinRate = (player, numeric=false) => {
 		var i = player[1]
-		var rankedInfo = this.props.rankedInfo[i]
+		var rankedInfo = data.rankedInfo[i]
 		var wins = rankedInfo.reduce((total, current) => {
 			return total += current.wins
 		}, 0)
@@ -438,24 +356,24 @@ class DataDisplay extends React.Component {
 		}
 	}
 
-	calcMasteryPoints = (player, numeric=false) => {
-		if (this.props.championMasteries[player[1]]) {
+	let calcMasteryPoints = (player, numeric=false) => {
+		if (data.championMasteries[player[1]]) {
 			if (numeric) {
-				return this.props.championMasteries[player[1]].championPoints
+				return data.championMasteries[player[1]].championPoints
 			}
-			return this.props.championMasteries[player[1]].championPoints.toLocaleString()
+			return data.championMasteries[player[1]].championPoints.toLocaleString()
 		} else {
 			return 0
 		}
 	}
 
-	calcLastPlayed = (player, numeric=false) => {
-		if (this.props.championMasteries[player[1]]) {
-			var timeSince = ((Date.now() - this.props.championMasteries[player[1]].lastPlayTime)/(24 * 60 * 60 *1000))
+	let calcLastPlayed = (player, numeric=false) => {
+		if (data.championMasteries[player[1]]) {
+			var timeSince = ((Date.now() - data.championMasteries[player[1]].lastPlayTime)/(24 * 60 * 60 *1000))
 			if (numeric) {
 				return timeSince
 			}
-			return `${timeSince.toFixed(0)} day${timeSince == 1 ? '' : 's'} ago`
+			return `${timeSince.toFixed(0)} day${timeSince.toFixed(0) === '1' ? '' : 's'} ago`
 		} else {
 			if (numeric) {
 				return null
@@ -464,97 +382,68 @@ class DataDisplay extends React.Component {
 		}
 	}
 
-	calcAggression = (player, numeric=false) => {
-		var champId = player[0].championId
-		var typical = this.props.championStats[champId]
-		if (!this.props.championHistories[player[1]] || this.props.championHistories[player[1]].length < 10) {
-			if (numeric) {
-				return null
-			}
-			return 'not enough data'
-		}
-		var percentiles = []
-		for (var match of this.props.championHistories[player[1]]) {
-			var participant = match.participants[match.participantIdentities.filter(participant => {
-				return participant.player.summonerId == player[0].summonerId
-			})[0].participantId - 1]
-
-			percentiles.push((this.getPercentile(
-				participant.stats.totalDamageDealtToChampions/match.gameDuration,
-				typical.totalDamageDealtToChampionsPerSecAvg,
-				typical.totalDamageDealtToChampionsPerSecStdDev,
-			) + this.getPercentile(
-				participant.stats.totalDamageTaken/match.gameDuration,
-				typical.totalDamageTakenPerSecAvg,
-				typical.totalDamageTakenPerSecStdDev,
-			))/2)
-		}
-		var percent = (100 * percentiles.reduce((a, b) => a + b) / percentiles.length)
+	let calcAggression = (player, numeric=false) => {
+        let [ playerData, playerNum ] = player
+        let dealtPercentiles = getPlayerPercentile(player, 'totalDamageDealtToChampionsPerSec')
+        let dealt = dealtPercentiles.reduce((total, percent) => total + percent, 0) / dealtPercentiles.length
+        let receivedPercentiles = getPlayerPercentile(player, 'totalDamageTakenPerSec')
+        let received = receivedPercentiles.reduce((total, percent) => total + percent, 0) / receivedPercentiles.length
+        let percent = (dealt + received) / 2
+        if ([playerData.spell1Id, playerData.spell2Id].includes(11 /* SMITE */)) {
+		    percent = dealt // ignore received for junglers because of monster damage
+        }
+        if (dealtPercentiles.length === 0 || receivedPercentiles.length === 0) {
+            return null
+        }
 		if (numeric) {
-			return percent/100
+			return percent
 		}
-		return `${percent.toFixed(0)}%${percentiles.length < 20 ? ' ?' : ''}`
+		return `${(100 * percent).toFixed(0)}%${dealtPercentiles.length + receivedPercentiles.length < matchesPerPlayer ? ' ?' : ''}`
 	}
 
-	calcWarding = (player, numeric=false) => {
-		var champId = player[0].championId
-		var typical = this.props.championStats[champId]
-		if (!this.props.championHistories[player[1]] || this.props.championHistories[player[1]].length < 10) {
-			if (numeric) {
-				return null
-			}
-			return 'not enough data'
-		}
-		var percentiles = []
-		for (var match of this.props.championHistories[player[1]]) {
-			var participant = match.participants[match.participantIdentities.filter(participant => {
-				return participant.player.summonerId == player[0].summonerId
-			})[0].participantId - 1]
-
-			percentiles.push(this.getPercentile(
-				participant.stats.visionScore/match.gameDuration,
-				typical.visionScorePerSecAvg,
-				typical.visionScorePerSecStdDev,
-			))
-		}
-		var percent = (100 * percentiles.reduce((a, b) => a + b) / percentiles.length)
+	let calcWarding = (player, numeric=false) => {
+		let visionPercentiles = getPlayerPercentile(player, 'visionScorePerSec')
+        let vision = visionPercentiles.reduce((total, percent) => total + percent, 0) / visionPercentiles.length
+        if (visionPercentiles.length === 0) {
+            return null
+        }
 		if (numeric) {
-			return percent/100
+			return vision
 		}
-		return `${percent.toFixed(0)}%${percentiles.length < 20 ? ' ?' : ''}`
+		return `${(100 * vision).toFixed(0)}%${visionPercentiles.length < matchesPerPlayer ? ' ?' : ''}`
 	}
 
-	calcTiltScore = (player) => {
+	let calcTiltScore = (player) => {
 		var tiltArr = []
 
-		var losingStreak = this.calcLosingStreak(player, true)
+		var losingStreak = calcLosingStreak(player, true)
 		if (losingStreak !== null) {
 			tiltArr.push(1 - 1/(Math.pow(2,losingStreak)))
 		}
 
-		var winRate = this.calcWinRate(player, true)
+		var winRate = calcWinRate(player, true)
 		if (winRate !== null) {
 			tiltArr.push(1 - winRate)
 		}
 
-		var masteryPoints = this.calcMasteryPoints(player, true)
+		var masteryPoints = calcMasteryPoints(player, true)
 		if (masteryPoints !== null) {
 			tiltArr.push(1/(Math.pow(2,masteryPoints/7000)))
 		}
 
-		var lastPlayed = this.calcLastPlayed(player, true)
+		var lastPlayed = calcLastPlayed(player, true)
 		if (lastPlayed !== null) {
-			tiltArr.push(1 - 1/(Math.pow(2,lastPlayed/20)))
+			tiltArr.push(1 - 1/(Math.pow(2,lastPlayed/matchesPerPlayer)))
 		} else {
 			tiltArr.push(1)
 		}
 
-		var aggression = this.calcAggression(player, true)
+		var aggression = calcAggression(player, true)
 		if (aggression !== null) {
 			tiltArr.push(aggression)
 		}
 
-		var warding = this.calcWarding(player, true)
+		var warding = calcWarding(player, true)
 		if (warding !== null) {
 			tiltArr.push(1 - warding)
 		}
@@ -567,64 +456,65 @@ class DataDisplay extends React.Component {
 		}
 	}
 
-	makeTeam = (team) => {
-		var playerDisplay = team.map(player => (
-			<div className={css(styles.playerDisplayContainer)}>
+	let makeTeam = (team) => {
+		let playerDisplay = team.map(player => (
+			<div className={css(styles.playerDisplayContainer)} key={`${player[0].summonerName}-player-display`}>
 				<div className={css(styles.championIconContainer)}>
 					<img
 						className={css(styles.championIcon)}
 						src={
 							'https://ddragon.leagueoflegends.com/cdn/' +
-							this.props.currentGameVersion + '/img/champion/' +
-							this.props.championData[`${player[0].championId}`].id +
+							data.currentGameVersion + '/img/champion/' +
+							data.championData[`${player[0].championId}`].id +
 							'.png'
 						}
 					/>
 					{player[0].summonerName}
 				</div>
 				{[
-					[
-						this.calcLosingStreak,
-						'Number of games a player has lost consecutively with no greater than a 12 hour break between games.'
-					],
-					[
-						this.calcWinRate,
-						'Winrate in ranked games played this season.'
-					],
-					[
-						this.calcMasteryPoints,
-						'Mastery points on the currently played champion.'
-					],
-					[
-						this.calcLastPlayed,
-						'The last time the player used their current champion.'
-					],
-					[
-						this.calcAggression,
-						'A percentile representing how aggressive a player is on their current champion compared to other players on the same champion. A low aggression Darius may still be somewhat aggressive and a highly aggressive Soraka may still be somewhat passive.'
-					],
-					[
-						this.calcWarding,
-						'A percentile representing how effectively a player wards on their current champion compared to other players on the same champion. A low warding Janna may still place more wards than the average player, because Jannas tend to ward a lot.'
-					],
-					[
-						this.calcTiltScore,
-						'An aggregate of all data collected into a score representing the likely benefit of camping/focusing this player.'
-					],
+					{
+						func: calcLosingStreak,
+						desc: 'Number of games a player has lost consecutively with no greater than a 12 hour break between games.'
+                    },
+					{
+						func: calcWinRate,
+						desc: 'Winrate in ranked games played this season.'
+                    },
+					{
+						func: calcMasteryPoints,
+						desc: 'Mastery points on the currently played champion.'
+                    },
+					{
+						func: calcLastPlayed,
+						desc: 'The last time the player used their current champion.'
+                    },
+					{
+						func: calcAggression,
+						desc: 'A percentile representing how aggressive a player is on their current champion compared to other players on the same champion. A low aggression Darius may still be somewhat aggressive and a highly aggressive Soraka may still be somewhat passive.'
+                    },
+					{
+						func: calcWarding,
+						desc: 'A percentile representing how effectively a player wards on their current champion compared to other players on the same champion. A low warding Janna may still place more wards than the average player, because Jannas tend to ward a lot.'
+                    },
+					{
+						func: calcTiltScore,
+						desc: 'An aggregate of all data collected into a score representing the likely benefit of camping/focusing this player.'
+                    },
 				].map((data, i) => (
 					<div
+                        key={`${player[0].summonerName}-${i}-data-cell`}
 						className={css(styles.field)}
-						style={{ backgroundColor: i % 2 == 0 ? theme('primary2', this.props.theme) : null }}
-						onMouseEnter={(e) => this.setState({ popupText: data[1] })}
-						onMouseLeave={() => this.setState({ popupText: null })}
+						style={{ backgroundColor: i % 2 == 0 ? theme('primary2', globalTheme) : null }}
+						onMouseMove={(e) => setPopupText(data.desc, e)}
+						onMouseLeave={(e) => setPopupText(null, e)}
 					>
-						{data[0](player)}
+						{data.func(player) ?? 'not enough data'}
 					</div>
 				))}
 			</div>
 		))
 
-		var titles = [
+		let titles = [
 			'Losing Streak',
 			'Ranked Win Rate',
 			'Mastery Points',
@@ -633,60 +523,81 @@ class DataDisplay extends React.Component {
 			'Warding',
 			'Tilt Score'
 		].map((title, i) => (
-			<div className={css(styles.fieldTitle)} style={{ backgroundColor: i % 2 == 0 ? theme('primary2', this.props.theme) : null }}>
+			<div className={css(styles.fieldTitle)} key={`title-${i}`} style={{ backgroundColor: i % 2 == 0 ? theme('primary2', globalTheme) : null }}>
 				{title}
 			</div>
 		))
 
-		var dmgMagic = 0
-		var dmgPhysical = 0
-		var dmgTrue = 0
-		var dmgTotal = 0
+		let dmgMagic = 0
+		let dmgPhysical = 0
+		let dmgTrue = 0
+		let dmgTotal = 0
 
 		team.forEach(player => {
-			dmgMagic += this.props.championStats[player[0].championId]?.magicDamageDealtToChampionPerSecsAvg
-			dmgPhysical += this.props.championStats[player[0].championId]?.physicalDamageDealtToChampionsPerSecAvg
-			dmgTrue += this.props.championStats[player[0].championId]?.trueDamageDealtToChampionsPerSecAvg
-			dmgTotal += this.props.championStats[player[0].championId]?.magicDamageDealtToChampionPerSecsAvg
-			dmgTotal += this.props.championStats[player[0].championId]?.physicalDamageDealtToChampionsPerSecAvg
-			dmgTotal += this.props.championStats[player[0].championId]?.trueDamageDealtToChampionsPerSecAvg
+            let [ playerData, playerNum ] = player
+			dmgMagic += data.detailedChampStats[playerData.championId]?.magicDamageDealtToChampionsPerSecAvg ?? 0
+			dmgPhysical += data.detailedChampStats[playerData.championId]?.physicalDamageDealtToChampionsPerSecAvg ?? 0
+			dmgTrue += data.detailedChampStats[playerData.championId]?.trueDamageDealtToChampionsPerSecAvg ?? 0
+			dmgTotal += data.detailedChampStats[playerData.championId]?.magicDamageDealtToChampionsPerSecAvg ?? 0
+			dmgTotal += data.detailedChampStats[playerData.championId]?.physicalDamageDealtToChampionsPerSecAvg ?? 0
+			dmgTotal += data.detailedChampStats[playerData.championId]?.trueDamageDealtToChampionsPerSecAvg ?? 0
 		})
+
+        let probabilityInput = data.currentGame.participants.reduce((carry, participant, i) => {
+            carry[participant.teamId === 100 ? 'allyTeam' : 'opponentTeam']['picks'][i] = { championId: participant.championId }
+            return carry
+        }, {
+            allyTeam: {
+                picks: {}
+            },
+            opponentTeam: {
+                picks: {}
+            }
+        })
+
+        let probabilityData = WinRateCalc.calcProbability(probabilityInput, { matchups: data.matchups })
+        let predictedWinRate = probabilityData.probability || 0.5
+        let totalSamples = probabilityData.totalSamples
+
+        let blueSideWR = `${(100 * predictedWinRate).toFixed(1)}%${totalSamples < 100_000 ? ' ?' : ''}`
+        let redSideWR = `${(100 * (1 - predictedWinRate)).toFixed(1)}%${totalSamples < 100_000 ? ' ?' : ''}`
+
+        let teamColor = team ? (team[0][0].teamId == 100 ? theme('accent3', globalTheme) : theme('accent4', globalTheme)) : ''
 
 		return (
 			<div
 				className={css(styles.teamContainer)}
-				onMouseMove={e => {
-					this.setState({ mouseX: e.pageX + 3, mouseY: e.pageY + 20 })
-				}}
 			>
-				<div
-					className={css(styles.infoBoxContainer)}
-					style={{
-						top: this.state.mouseY,
-						left: this.state.mouseX,
-						display: this.state.popupText ? 'flex' : 'none'
-					}}
-				>
-					<div className={css(styles.infoBox)}>
-						{this.state.popupText}
-					</div>
-				</div>
 				<div style={{ flex: 1 }}/>
 				<div className={css(styles.teamWrapper)}>
 					<div
 						className={css(styles.teamSide)}
 						style={{
-							color: team.length > 0 ? (team[0][0].teamId == 100 ? theme('accent3', this.props.theme) : theme('accent4', this.props.theme)) : '',
+							color: teamColor,
 						}}
 					>
-						{team.length > 0 ? (team[0][0].teamId == 100 ? 'BLUE SIDE' : 'RED SIDE') : ''}
+						{team.length > 0 ? (team[0][0].teamId == 100 ? `BLUE SIDE` : `RED SIDE`) : ''}
 					</div>
-					<div className={css(styles.damageContainer)}>
+                    <div
+                        className={css(styles.oddsOfWinning)}
+                        style={{
+							color: teamColor,
+						}}
+                        onMouseMove={(e) => setPopupText(`Odds of this team winning.`, e)}
+						onMouseLeave={(e) => setPopupText(null, e)}
+                    >
+                        {team.length > 0 ? (team[0][0].teamId == 100 ? `${blueSideWR}` : `${redSideWR}`) : ''}
+                    </div>
+					<div
+                        className={css(styles.damageContainer)}
+                        onMouseMove={(e) => setPopupText(`Estimated damage type ratio of this team.`, e)}
+						onMouseLeave={(e) => setPopupText(null, e)}
+                    >
 						<div
 							className={css(styles.damageBarComponent)}
 							style={{
 								flex: dmgMagic/dmgTotal,
-								backgroundColor: theme('accent3', this.props.theme),
+								backgroundColor: theme('accent3', globalTheme),
 							}}
 						>
 							{`${(100*dmgMagic/dmgTotal).toFixed(1)}% AP`}
@@ -695,7 +606,7 @@ class DataDisplay extends React.Component {
 							className={css(styles.damageBarComponent)}
 							style={{
 								flex: dmgPhysical/dmgTotal,
-								backgroundColor: theme('accent4', this.props.theme),
+								backgroundColor: theme('accent4', globalTheme),
 							}}
 						>
 							{`${(100*dmgPhysical/dmgTotal).toFixed(1)}% AD`}
@@ -721,25 +632,29 @@ class DataDisplay extends React.Component {
 		)
 	}
 
-	render() {
-		loadStyles(this.props.theme)
 
-		var team1 = this.props.currentGame.participants.map((participant, index) => {
-			return [participant, index]
-		}).filter(participant => participant[0].teamId == 100)
-		var team2 = this.props.currentGame.participants.map((participant, index) => {
-			return [participant, index]
-		}).filter(participant => participant[0].teamId == 200)
+    loadStyles(globalTheme)
 
+    var team1 = data.currentGame.participants.map((participant, index) => {
+        return [participant, index]
+    }).filter(participant => participant[0].teamId == 100)
+    var team2 = data.currentGame.participants.map((participant, index) => {
+        return [participant, index]
+    }).filter(participant => participant[0].teamId == 200)
 
-
-		return (
-			<div className={css(styles.dataDisplayContainer)}>
-				{this.makeTeam(team1)}
-				{this.makeTeam(team2)}
-	    </div>
-	  );
-	}
+    return (
+        <div className={css(styles.dataDisplayContainer)}>
+            <div
+                id='infoBoxContainer'
+                className={css(styles.infoBoxContainer)}
+                style={{ display: 'none' }}
+            >
+                <div id='infoBox' className={css(styles.infoBox)}/>
+            </div>
+            {makeTeam(team1)}
+            {makeTeam(team2)}
+        </div>
+    );
 }
 
 var styles = null;
@@ -909,13 +824,17 @@ var loadStyles = (t) => {
 			fontFamily: 'Alegreya Sans',
 			fontWeight: 600,
 			textAlign: 'center',
-			marginTop: 10,
-			marginBottom: 10,
+			marginTop: 5,
 		},
+        oddsOfWinning: {
+            ...FontSize.medium,
+			textAlign: 'center',
+			marginBottom: 5,
+        },
 		infoBoxContainer: {
 			position: 'absolute',
-			width: 250,
-			marginLeft: -125,
+            minWidth: 225,
+			transform: 'translateX(-50%)',
 			alignItems: 'center',
 			justifyContent: 'center',
 			boxShadow: '0px 0px 3px ' + theme('inputHighlight', t, true),
@@ -931,6 +850,9 @@ var loadStyles = (t) => {
 			borderStyle: 'solid',
 			borderWidth: 2,
 			color: theme('text1', t),
+            display: 'flex',
+            flex: 1,
+            justifyContent: 'center',
 		},
 	});
 }
