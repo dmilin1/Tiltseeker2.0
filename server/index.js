@@ -68,7 +68,7 @@ startListening = () => {
 
 	app.get('/api/:region/stats', (req, res) => {
 		res.set('Cache-Control', `public, max-age=${dataCollector.refreshInterval/1000}`);
-		res.send(dataCollector.stats)
+		res.send({ detailedChampStats: dataCollector.champStats.data, ...dataCollector.stats })
 	})
 
 	app.get('/api/:region/*', (req, res) => {
@@ -141,4 +141,5 @@ dataCollector.getStats()
 })
 .catch((err) => {
 	console.log('failed initial stats refresh')
+    console.log(err)
 })

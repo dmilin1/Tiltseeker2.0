@@ -37,7 +37,7 @@ var loadStyles = (t) => {
 		},
 		progressBar: {
 			backgroundColor: theme('text1', t),
-			transition: 'background-color 0.25s, color 0.25s, width 2.5s ease-out',
+			transition: 'background-color 0.25s, color 0.25s, width 0.5s ease-out',
 			height: '100%',
 			borderRadius: 5,
 		},

@@ -1,6 +1,39 @@
 const mongoose = require('mongoose');
 const axios = require('axios');
 const axiosRetry = require('axios-retry');
+const pantryLib = require('pantry-node')
+
+const realPantry = new pantryLib(process.env.PANTRY_ID)
+
+const sleep = (time) => new Promise(res => setTimeout(res, time))
+
+const doWithRetry = async (func, attempts, ...args) => {
+    try {
+        return await func(...args)
+    } catch (e) {
+        if (attempts <= 0) {
+            console.log('doWithRetry failed')
+            throw e
+        } else {
+            console.log('caught: ', e)
+            try {
+                await sleep(Date.now() - (new Date(JSON.parse(e).error.nextValidRequestDate)).getTime() + 10000 * Math.random())
+            } catch (e) {
+                await sleep(2000 + 10000 * Math.random())
+            }
+            return await doWithRetry(func, attempts - 1, ...args)
+        }
+    }
+}
+
+// Override pantry functions to include retry
+pantry = new pantryLib(process.env.PANTRY_ID)
+pantry.basket.create    = (...args) => doWithRetry(realPantry.basket.create.bind(realPantry.basket), 3, ...args)
+pantry.basket.delete    = (...args) => doWithRetry(realPantry.basket.delete.bind(realPantry.basket), 3, ...args)
+pantry.basket.get       = (...args) => doWithRetry(realPantry.basket.get.bind(realPantry.basket), 3, ...args)
+pantry.basket.link      = (...args) => doWithRetry(realPantry.basket.link.bind(realPantry.basket), 3, ...args)
+pantry.basket.update    = (...args) => doWithRetry(realPantry.basket.update.bind(realPantry.basket), 3, ...args)
+pantry.details          = (...args) => doWithRetry(realPantry.details.bind(realPantry), 3, ...args)
 
 axiosRetry(axios, {
 	retries: 3,
@@ -128,6 +161,254 @@ const donationSchema = new Schema({
 const Donation = mongoose.model('Donation', donationSchema);
 
 
+class ChampStats {
+    EXP_MOVING_AVG_FACTOR = 10000
+    CHUNKS_PER_BASKET = 6
+    RIOT_HEADERS = { headers: {
+        'X-Riot-Token': process.env.RIOT_API
+    }}
+    PARTICIPANT_FIELDS = [
+        {
+            sourceKey: 'win',
+        }, {
+            sourceKey: 'timePlayed',
+            stdDev: true
+        }, {
+            // summoner spells needs weird stuff done
+            cstmKey: ({ participant, champId }) => {
+                let prexistingKeys = Object.keys(this.data[champId]).filter(key => key.startsWith('summoner_')).map(key => `summoner_${key.split('_')[1]}_`)
+                let uniqueKeys = [...new Set([`summoner_${participant.summoner1Id}_`, `summoner_${participant.summoner2Id}_`, ...prexistingKeys])]
+                return uniqueKeys
+            },
+            cstmVal: ({ participant, keys }) => {
+                return keys.map(key => [participant.summoner1Id, participant.summoner2Id].includes(Number(key.split('_')[1])) ? 1 : 0 )
+            }
+        }, {
+            sourceKey: 'firstBloodParticipate',
+            cstmVal: ({participant}) => +(participant.firstBloodKill || participant.firstBloodAssist),
+        }, {
+            sourceKey: 'visionScore',
+            stdDev: true,
+            perSecond: true,
+        }, {
+            sourceKey: 'magicDamageDealtToChampions',
+            stdDev: true,
+            perSecond: true,
+        }, {
+            sourceKey: 'physicalDamageDealtToChampions',
+            stdDev: true,
+            perSecond: true,
+        }, {
+            sourceKey: 'trueDamageDealtToChampions',
+            stdDev: true,
+            perSecond: true,
+        }, {
+            sourceKey: 'totalDamageDealtToChampions',
+            stdDev: true,
+            perSecond: true,
+        }, {
+            sourceKey: 'totalDamageTaken',
+            stdDev: true,
+            perSecond: true,
+        }, {
+            sourceKey: 'damageDealtToObjectives',
+            stdDev: true,
+            perSecond: true,
+        }, {
+            sourceKey: 'damageDealtToTurrets',
+            stdDev: true,
+            perSecond: true,
+        }, {
+            sourceKey: 'kills',
+            stdDev: true,
+            perSecond: true,
+        }, {
+            sourceKey: 'deaths',
+            stdDev: true,
+            perSecond: true,
+        }, {
+            sourceKey: 'assists',
+            stdDev: true,
+            perSecond: true,
+        }, {
+            sourceKey: 'wardsPlaced',
+            stdDev: true,
+            perSecond: true,
+        }, {
+            sourceKey: 'neutralMinionsKilled',
+            stdDev: true,
+            perSecond: true,
+        }, {
+            sourceKey: 'objectivesStolen',
+            perSecond: true,
+        }, {
+            sourceKey: 'goldEarned',
+            stdDev: true,
+            perSecond: true,
+        }, 
+    ]
+
+    version = null
+    data = null
+
+    constructor(v) {
+        (async () => {
+            await this.getData()
+            this.fetch()
+        })()
+    }
+
+    async setVersion(v=null) {
+        this.version = v ?? (await axios.get('https://ddragon.leagueoflegends.com/api/versions.json')).data[0]
+    }
+
+    async getData() {
+        if (this.version === null) {
+            await this.setVersion()
+        }
+        console.log('loading data')
+        let basketsOfVersion = (await pantry.details()).baskets.filter(basket => basket.name.split('_')[0] === this.version)
+        let allData = []
+        for (let basket of basketsOfVersion) {
+            await sleep(2000)
+            allData.push(pantry.basket.get(basket.name))
+        }
+        allData = await Promise.all(allData)
+        await sleep(2000)
+        console.log('loaded data')
+        this.data = Object.assign({ matchCount: 0, lastGameId: null }, ...allData)
+        console.log(this.data.matchCount)
+    }
+
+    async save() {
+        let i = 0
+        let baskets = (await pantry.details()).baskets
+        while (true) {
+            let basketName = `${this.version}_${i}-${i + this.CHUNKS_PER_BASKET-1}`
+            let createOrUpdate = !baskets.find(basket => basket.name === basketName) ? 'create' : 'update'
+            let chunk = Object.fromEntries(Object.entries(this.data).slice(i, i + this.CHUNKS_PER_BASKET))
+            if (!Object.keys(chunk).length) {
+                break
+            }
+            await pantry.basket[createOrUpdate](basketName, chunk)
+            await sleep(2000)
+            i += this.CHUNKS_PER_BASKET
+        }
+        console.log('data saved')
+    }
+
+    async deleteSavedData() {
+        let baskets = (await pantry.details()).baskets
+        await Promise.all(baskets.map(async basket => {
+            let res = await pantry.basket.delete(basket.name)
+            console.log(res)
+            await sleep(2000)
+            return res
+        }))
+        this.data = null
+    }
+
+    async addMatch(match) {
+        this.data.matchCount += 1
+        this.data.lastGameId = match.metadata.matchId
+        for (let participant of match.info.participants) {
+            let champId = participant.championId
+            if (!this.data[champId]) {
+                this.data[champId] = { count: 1 }
+            } else {
+                this.data[champId].count += 1
+            }
+            this.PARTICIPANT_FIELDS.forEach(field => {
+                let keys = field.cstmKey?.({ participant, champId }) ?? field.sourceKey
+                let vals = ( field.cstmVal?.({ participant, champId, keys }) ?? participant[field.sourceKey] )
+                keys = Array.isArray(keys) ? keys : [keys]
+                vals = Array.isArray(vals) ? vals : [vals]
+                keys = keys.map(key => `${key}${field.perSecond ? 'PerSec' : ''}`)
+                vals = field.perSecond ? vals.map(val => val / participant.timePlayed) : vals
+                for (let i of Array(keys.length).keys()) {
+                    let key = keys[i]
+                    let val = vals[i]
+                    let windowSize = Math.min(this.data[champId].count, this.EXP_MOVING_AVG_FACTOR)
+                    let oldAvg = (this.data[champId][`${key}Avg`] ?? 0)
+                    let newAvg = oldAvg + ( val - oldAvg ) / windowSize
+                    this.data[champId][`${key}Avg`] = newAvg
+                    if (field.stdDev && windowSize > 1) {
+                        let oldStdDev = (this.data[champId][`${key}StdDev`] ?? 0)
+                        this.data[champId][`${key}Variance`] = oldStdDev * (windowSize - 2) / (windowSize - 1) + (val - newAvg) ** 2 / (windowSize - 1)
+                    }
+                }
+            })
+        }
+        if (this.data.matchCount % 250 == 0) {
+            await this.save()
+        }
+    }
+
+    async fetch() {
+        const fetchCurrGameId = async () => (await axios.get('https://na1.api.riotgames.com/lol/spectator/v4/featured-games', this.RIOT_HEADERS)).data.gameList[0].gameId - 150000
+        const skipPattern = [1,1,1].concat((()=>{let[x, y]=[1,1];let l=[];while(l.length<50){[x,y]=[y,x+y];l.push(x);l.concat([...Array(l.length).keys()])};return l})().flatMap((v,i)=>[v,...[...Array(i)].map((_,i)=>1)]))
+        let currentGameId = await fetchCurrGameId()
+        let skips = 0
+        let consecutiveNewVersions = 0
+
+        console.log(`${currentGameId} (${this.data?.matchCount}): initial game id`)
+        while (true) {
+            await sleep(this.data?.matchCount < 100000 ? 50 : this.data.matchCount / 50)
+            let match = null
+            try {
+                match = (await axios.get('https://americas.api.riotgames.com/lol/match/v5/matches/NA1_' + currentGameId, this.RIOT_HEADERS)).data
+            } catch (e) {
+                if (skips > 150) {
+                    console.log('No matches found in a while. Resetting...')
+                    currentGameId = await fetchCurrGameId()
+                    skips = 0
+                }
+                if (e?.response?.status == 404) {
+                    console.log(`${currentGameId} (${this.data?.matchCount}): skipped - does not exist`)
+                    currentGameId += skipPattern[skips]
+                    skips += 1
+                } else {
+                    console.log('Weird Riot server error. Waiting...')
+                    currentGameId += 1
+                    await sleep(1000 * 60 * 5)
+                }
+                continue
+            }
+            let hrsSinceGame = ( Date.now() - match.info.gameStartTimestamp ) / ( 1000 * 60 * 60 )
+            skips = 0
+            currentGameId += 1
+            if (!this.version.startsWith(match.info.gameVersion.split('.').slice(0,2).join('.'))) {
+                console.log(`${currentGameId} (${this.data?.matchCount}): skipped - wrong game version`)
+                consecutiveNewVersions += 1
+                if (consecutiveNewVersions > 10) {
+                    console.log(`Many new game versions discovered. Clearing old data.`)
+                    await this.deleteSavedData()
+                    await this.setVersion()
+                    await this.getData()
+                }
+                continue
+            } else {
+                consecutiveNewVersions = 0
+            }
+            if (match.info.queueId !== 420) {
+                console.log(`${currentGameId} (${this.data?.matchCount}): skipped - wrong game mode`)
+                continue
+            }
+            if (hrsSinceGame < 1.5) {
+                console.log('All caught up. Waiting...')
+                await sleep(1000 * 60 * 1)
+                continue
+            } else if (hrsSinceGame > 15) {
+                console.log('Matches too old. Will find newer match. Waiting...')
+                await sleep(1000 * 60 * 1)
+                currentGameId = await fetchCurrGameId()
+                continue
+            }
+            console.log(`${currentGameId} (${this.data?.matchCount}): found - played ${hrsSinceGame.toPrecision(3)} hours ago`)
+            await this.addMatch(match)
+        }
+    }
+}
 
 class DataCollector {
 	constructor() {
@@ -138,15 +419,10 @@ class DataCollector {
 		this.refreshInterval = 900000 // 15 minutes
 
 		this.stats = null
+        this.champStats = new ChampStats()
 
-		this.currentlyRefreshing = false
-		this.pause = false
 		this._connect()
-
-		this.refreshData()
-		this.interval = setInterval(() => {
-			if (!this.pause) { this.refreshData() }
-		}, 900000)
+        setInterval(this.getStats, this.refreshInterval)
 	}
 
 	_connect() {
@@ -172,28 +448,7 @@ class DataCollector {
 		});
 	}
 
-	pause(num=0) {
-		clearTimeout(this.timer)
-		this.timer = setTimeout(() => this.pause = true, num)
-	}
-
-	unPause(num=0) {
-		clearTimeout(this.timer)
-		this.timer = setTimeout(() => this.pause = false, num)
-	}
-
-	togglePause(num=0) {
-		clearTimeout(this.timer)
-		this.timer = setTimeout(() => this.pause = !this.pause, num)
-	}
-
-	print() {
-		console.log(
-			'paused: ' + this.pause
-		)
-	}
-
-	async getGoodData() {
+	async getMatchups() {
 		var currentGameVersion = (await axios.get('https://ddragon.leagueoflegends.com/api/versions.json')).data[0]
 		var championData = (await axios.get(`https://ddragon.leagueoflegends.com/cdn/${currentGameVersion}/data/en_US/champion.json`)).data.data
 		var championIds = Object.values(championData).map(champ => Number(champ.key)).sort((a, b) => a - b)
@@ -214,18 +469,6 @@ class DataCollector {
 				var champId = idBatch[i]
 			
 				try {
-					// gameDurationAvg is estimate. No way to get perfect number right now.
-
-					var champStats = champData.stats.reduce((accum, [key, name, idkWhatThisIs, value, percentile, rank]) => {
-						accum[key] = value
-						return accum
-					}, {})
-
-					var objectiveStats = Object.entries(champData.objective).reduce((accum, [key, data]) => {
-						accum[key] = data['win'][0]
-						return accum
-					}, {})
-
 					stats[champId] = {
 						_id: champId,
 						count: champData.n,
@@ -245,20 +488,6 @@ class DataCollector {
 
 						spell1Id: champData.summary.sums[0],
 						spell2Id: champData.summary.sums[1],
-
-						firstBloodParticipateAvg: objectiveStats.blood1 / 100,
-						magicDamageDealtToChampionPerSecsAvg: champStats.magicDamage,
-						physicalDamageDealtToChampionsPerSecAvg: champStats.physicalDamage,
-						trueDamageDealtToChampionsPerSecAvg: champStats.trueDamage,
-						totalDamageDealtToChampionsPerSecAvg: champStats.damage,
-						totalDamageTakenPerSecAvg: champStats.damageTaken,
-						killsPerSecAvg: champStats.kills,
-						deathsPerSecAvg: champStats.deaths,
-						assistsPerSecAvg: champStats.assists,
-						neutralMinionsKilledPerSecAvg: champStats.teamJungleCS,
-						firstInhibitorParticipateAvg: objectiveStats.inhibitor1 / 100,
-						goldEarnedPerSecAvg: champStats.gold,
-						totalHealPerSecAvg: champStats.heal,
 					}
 				} catch (e) {
 					noDataChamps.push(champId)
@@ -326,333 +555,21 @@ class DataCollector {
 	}
 
 	async getStats() {
-		var champStats = await Player.aggregate([{
-			$group: {
-				_id: '$championId',
-				count: { $sum: 1 },
-				winRateAvg: { $avg: '$win' },
-				gameDurationAvg: { $avg: '$gameDuration' },
-
-				spell1Id: { $max: '$spell1Id' },
-				spell2Id: { $max: '$spell2Id' },
-
-				firstBloodParticipateAvg: { $avg: { $max: ['$firstBloodKill','$firstBloodAssist'] } },
-				visionScorePerSecAvg: { $avg: { $divide: [ '$visionScore', '$gameDuration' ] } },
-				magicDamageDealtToChampionPerSecsAvg: { $avg: { $divide: [ '$magicDamageDealtToChampions', '$gameDuration' ] } },
-				physicalDamageDealtToChampionsPerSecAvg: { $avg: { $divide: [ '$physicalDamageDealtToChampions', '$gameDuration' ] } },
-				trueDamageDealtToChampionsPerSecAvg: { $avg: { $divide: [ '$trueDamageDealtToChampions', '$gameDuration' ] } },
-				totalDamageDealtToChampionsPerSecAvg: { $avg: { $divide: [ '$totalDamageDealtToChampions', '$gameDuration' ] } },
-				magicalDamageTakenPerSecAvg: { $avg: { $divide: [ '$magicalDamageTaken', '$gameDuration' ] } },
-				physicalDamageTakenPerSecAvg: { $avg: { $divide: [ '$physicalDamageTaken', '$gameDuration' ] } },
-				trueDamageTakenPerSecAvg: { $avg: { $divide: [ '$trueDamageTaken', '$gameDuration' ] } },
-				totalDamageTakenPerSecAvg: { $avg: { $divide: [ '$totalDamageTaken', '$gameDuration' ] } },
-				damageDealtToObjectivesAvg: { $avg: '$damageDealtToObjectives' },
-				damageDealtToTurretsAvg: { $avg: '$damageDealtToTurrets' },
-				killsPerSecAvg: { $avg: { $divide: [ '$kills', '$gameDuration' ] } },
-				deathsPerSecAvg: { $avg: { $divide: [ '$deaths', '$gameDuration' ] } },
-				assistsPerSecAvg: { $avg: { $divide: [ '$assists', '$gameDuration' ] } },
-				wardsKilledPerSecAvg: { $avg: { $divide: [ '$wardsKilled', '$gameDuration' ] } },
-				neutralMinionsKilledPerSecAvg: { $avg: { $divide: [ '$neutralMinionsKilled', '$gameDuration' ] } },
-				damageSelfMitigatedPerSecAvg: { $avg: { $divide: [ '$damageSelfMitigated', '$gameDuration' ] } },
-				firstInhibitorParticipateAvg: { $avg: { $max: ['$firstInhibitorKill','$firstInhibitorAssist'] } },
-				goldEarnedPerSecAvg: { $avg: { $divide: [ '$goldEarned', '$gameDuration' ] } },
-				timeCCingOthersPerSecAvg: { $avg: { $divide: [ '$timeCCingOthers', '$gameDuration' ] } },
-				totalHealPerSecAvg: { $avg: { $divide: [ '$totalHeal', '$gameDuration' ] } },
-
-
-				winRateStdDev: { $stdDevPop: '$win' },
-				gameDurationStdDev: { $stdDevPop: '$gameDuration' },
-
-				firstBloodParticipateStdDev: { $stdDevPop: { $max: ['$firstBloodKill','$firstBloodAssist'] } },
-				visionScorePerSecStdDev: { $stdDevPop: { $divide: [ '$visionScore', '$gameDuration' ] } },
-				magicDamageDealtToChampionsPerSecStdDev: { $stdDevPop: { $divide: [ '$magicDamageDealtToChampions', '$gameDuration' ] } },
-				physicalDamageDealtToChampionsPerSecStdDev: { $stdDevPop: { $divide: [ '$physicalDamageDealtToChampions', '$gameDuration' ] } },
-				trueDamageDealtToChampionsPerSecStdDev: { $stdDevPop: { $divide: [ '$trueDamageDealtToChampions', '$gameDuration' ] } },
-				totalDamageDealtToChampionsPerSecStdDev: { $stdDevPop: { $divide: [ '$totalDamageDealtToChampions', '$gameDuration' ] } },
-				magicalDamageTakenPerSecStdDev: { $stdDevPop: { $divide: [ '$magicalDamageTaken', '$gameDuration' ] } },
-				physicalDamageTakenPerSecStdDev: { $stdDevPop: { $divide: [ '$physicalDamageTaken', '$gameDuration' ] } },
-				trueDamageTakenPerSecStdDev: { $stdDevPop: { $divide: [ '$trueDamageTaken', '$gameDuration' ] } },
-				totalDamageTakenPerSecStdDev: { $stdDevPop: { $divide: [ '$totalDamageTaken', '$gameDuration' ] } },
-				damageDealtToObjectivesStdDev: { $stdDevPop: '$damageDealtToObjectives' },
-				damageDealtToTurretsStdDev: { $stdDevPop: '$damageDealtToTurrets' },
-				killsPerSecStdDev: { $stdDevPop: { $divide: [ '$kills', '$gameDuration' ] } },
-				deathsPerSecStdDev: { $stdDevPop: { $divide: [ '$deaths', '$gameDuration' ] } },
-				assistsPerSecStdDev: { $stdDevPop: { $divide: [ '$assists', '$gameDuration' ] } },
-				wardsKilledPerSecStdDev: { $stdDevPop: { $divide: [ '$wardsKilled', '$gameDuration' ] } },
-				neutralMinionsKilledPerSecStdDev: { $stdDevPop: { $divide: [ '$neutralMinionsKilled', '$gameDuration' ] } },
-				damageSelfMitigatedPerSecStdDev: { $stdDevPop: { $divide: [ '$damageSelfMitigated', '$gameDuration' ] } },
-				firstInhibitorParticipateStdDev: { $stdDevPop: { $max: ['$firstInhibitorKill','$firstInhibitorAssist'] } },
-				goldEarnedPerSecStdDev: { $stdDevPop: { $divide: [ '$goldEarned', '$gameDuration' ] } },
-				timeCCingOthersPerSecStdDev: { $stdDevPop: { $divide: [ '$timeCCingOthers', '$gameDuration' ] } },
-				totalHealPerSecStdDev: { $stdDevPop: { $divide: [ '$totalHeal', '$gameDuration' ] } },
-			}
-		}])
+        let [ stats, matchups ] = [{}, {}]
 
 		try {
-            var goodData = await this.getGoodData()
-
-			for (var champData of champStats) {
-				// fix perSec stats
-				Object.keys(goodData.stats[champData._id]).forEach(key => {
-					if (key.toLowerCase().includes('persec')) {
-						goodData.stats[champData._id][key] /= champData.gameDurationAvg
-					}
-				})
-
-				Object.assign(champData, goodData.stats[champData._id])
-			}
-
-			var fullMatchups = goodData.matchups
+            ({ stats, matchups } = await this.getMatchups())
 
 			console.log('Successfully fetched data from lolalytics')
 		} catch (e) {
 			console.log(e)
-			console.log('Failed to fetch data from lolalytics. Using self hosted data instead.')
-
-			var matchupFiles = await Matchups.find({ updatedAt: { $gt: new Date() - 1000 * 60 * 60 * 24 * 14 }})
-
-			var fullMatchups = {}
-			
-			for (var matchups of matchupFiles) {
-				for (var arr of Object.entries(matchups.matchups)) {
-					var matchup = arr[0]
-					var score = arr[1]
-					fullMatchups[matchup] = fullMatchups[matchup] ? fullMatchups[matchup] + score : score
-				}
-			}
+			console.log('Failed to fetch data from lolalytics')
 		}
 
 		this.stats = {
-			champStats: champStats,
-			matchups: fullMatchups,
+			matchups: matchups,
+            champStats: Object.values(stats),
 		}
-	}
-
-	async refreshData() {
-		if (this.currentlyRefreshing) {
-			return
-		}
-
-		var ageLimitToClear = Date.now() - this.maxAgeToClear
-		var ageLimitForNewData = Date.now() - this.maxAgeForNewData
-
-		var clearOldMatches = () => {
-			return new Promise((resolve, reject) => {
-				Match.find({
-					gameCreation: { $lt: ageLimitToClear }
-				}, (err, doc) => {
-					var matchesToDelete = []
-					var oldPlayers = []
-					for (var match of doc) {
-						oldPlayers.push(...match.players)
-						matchesToDelete.push(match._id)
-					}
-					Player.deleteMany({
-						_id: { $in: oldPlayers }
-					}, (err, doc) => {
-						if (err) {
-							reject(err)
-						} else {
-							Match.deleteMany({
-								_id: { $in: matchesToDelete }
-							}, (err, doc) => {
-								if (err) {
-									reject(err)
-								} else {
-									console.log(doc.deletedCount + ' old matches were removed')
-									resolve()
-								}
-							})
-						}
-					})
-				})
-			})
-		}
-
-		var getInitialMatchId = async () => {
-            console.log((await Match.find().sort({ matchId: -1 }).limit(1)) ?? 'derp')
-			var currentGameId = (await axios.get('https://na1.api.riotgames.com/lol/spectator/v4/featured-games', {
-                headers: {
-                    'X-Riot-Token': process.env.RIOT_API
-                }
-            })).data.gameList.filter(game => game.gameQueueConfigId == 420)[0].gameId
-
-
-            var newestInDB = (await Match.find().sort({ matchId: -1 }).limit(1)).concat([{ matchId: 0 }])[0].matchId + 1
-            
-            return Math.max(newestInDB, currentGameId - 50_000) // roughly 8 hours old
-		}
-
-        var buildSkipPattern = () => {
-            var pattern = [1, 1]
-            var major_num_a = 1
-            var major_num_b = 1
-            for (var i = 0; i < 25; i += 1) {
-                var next_num = major_num_a + major_num_b
-                pattern = pattern.concat([...Array(Math.floor(next_num / 50))].map((_, i) => 1))
-                pattern.push(next_num)
-                major_num_b = major_num_a
-                major_num_a = next_num
-            }
-            return pattern
-        }
-
-		var addMatchToDatabase = (match) => {
-			var promise = new Promise((resolve, reject) => {
-
-				var newMatch = new Match()
-
-				newMatch.matchId = match.gameId;
-				newMatch.queueId = match.queueId;
-				newMatch.gameVersion = match.gameVersion;
-				newMatch.gameDuration = match.gameDuration;
-				newMatch.gameCreation = match.gameCreation;
-				newMatch.players = []
-
-				// console.log(match)
-
-				var matchups = {}
-
-				match.participants.forEach((participant, i) => {
-					if (i >= match.participants.length - 1) { return }
-					match.participants.forEach((otherParticipant, j) => {
-						var [a, b] = [participant, otherParticipant].sort((a, b) => a.championId - b.championId)
-						var key = a.championId + (a.teamId == b.teamId ? 'w' : 'v') + b.championId
-						matchups[key] = a.win ? 1 : 0
-					})
-				});
-
-				var increments = Object.entries(matchups).reduce((total, current) => {
-					total['matchups.' + current[0]] = current[1]
-					total['matchups.' + current[0] + '_total'] = 1
-					return total
-				}, {})
-
-				Matchups.findOneAndUpdate(
-					{ version: newMatch.gameVersion },
-					{ $inc: increments },
-					{ upsert: true },
-				).then(res => {
-					// console.log(res)
-				}).catch(err => {
-					// console.log(err)
-				})
-
-
-				var newPlayers = []
-
-				for (let [i, participant] of Object.entries(match.participants)) {
-					var player = new Player()
-
-					player.championId = participant.championId
-					player.win = participant.win
-					player.gameDuration = match.gameDuration
-
-					player.spell1Id = [participant.summoner1Id, participant.summoner2Id].sort()[0]
-					player.spell2Id = [participant.summoner1Id, participant.summoner2Id].sort()[1]
-
-					player.firstBloodKill = participant.firstBloodKill
-					player.firstBloodAssist = participant.firstBloodAssist
-					player.visionScore = participant.visionScore
-					player.magicDamageDealtToChampions = participant.magicDamageDealtToChampions
-					player.physicalDamageDealtToChampions = participant.physicalDamageDealtToChampions
-					player.trueDamageDealtToChampions = participant.trueDamageDealtToChampions
-					player.totalDamageDealtToChampions = participant.totalDamageDealtToChampions
-					player.magicalDamageTaken = participant.magicDamageTaken
-					player.physicalDamageTaken = participant.physicalDamageTaken
-					player.trueDamageTaken = participant.trueDamageTaken
-					player.totalDamageTaken = participant.totalDamageTaken
-					player.damageDealtToObjectives = participant.damageDealtToObjectives
-					player.damageDealtToTurrets = participant.damageDealtToTurrets
-					player.kills = participant.kills
-					player.deaths = participant.deaths
-					player.assists = participant.assists
-					player.visionScore = participant.visionScore
-					player.wardsKilled = participant.wardsKilled
-					player.neutralMinionsKilled = participant.neutralMinionsKilled
-					player.damageSelfMitigated = participant.damageSelfMitigated
-					player.firstInhibitorKill = Boolean(participant.firstInhibitorKill)
-					player.firstInhibitorAssist = Boolean(participant.firstInhibitorAssist)
-					player.goldEarned = participant.goldEarned
-					player.timeCCingOthers = participant.timeCCingOthers
-					player.totalHeal = participant.totalHeal
-
-					newPlayers.push(player)
-					newMatch.players.push(player._id)
-				}
-
-
-				newMatch.save((err, doc) => {
-					if (err) {
-						reject(err)
-					} else {
-						Player.insertMany(newPlayers, (err, doc => {
-							if (err) {
-                                console.log(err)
-								reject(err)
-							} else {
-								resolve()
-							}
-						}))
-					}
-				})
-
-			})
-			return promise
-		}
-
-        var collectMatches = async () => {
-            var matchId = await getInitialMatchId()
-            var skipPattern = buildSkipPattern()
-            var failedAttempts = 0
-            var currentMatchCount = await Match.estimatedDocumentCount()
-
-            while (currentMatchCount < this.maxMatches) {
-                try {
-                    var match = (await axios.get('https://americas.api.riotgames.com/lol/match/v5/matches/NA1_' + matchId, {
-                        headers: {
-                            'X-Riot-Token': process.env.RIOT_API
-                        }
-                    }))?.data?.info
-                    if (match.queueId != 420 && match.queueId != 400) {
-                        throw 'wrong queue'
-                    }
-                    await addMatchToDatabase(match)
-                    console.log(`${matchId}: added to db`)
-                    matchId += 1
-                    failedAttempts = 0
-                    currentMatchCount += 1
-                } catch (e) {
-                    if (e == 'wrong queue') {
-                        console.log(`${matchId}: wrong queue`)
-                        matchId += 1
-                        failedAttempts = 0
-                    } else if (e?.response?.status == 404) {
-                        console.log(`${matchId}: not found`)
-                        matchId += skipPattern[failedAttempts]
-                        failedAttempts += 1
-                    } else {
-                        throw e
-                    }
-                }
-                await new Promise(res => setTimeout(() => res(), 100))
-            }
-        }
-
-		console.log('refreshing data')
-		this.currentlyRefreshing = true
-
-        await clearOldMatches()
-        await collectMatches()
-        this.currentlyRefreshing = false
-        try {
-            await this.getStats()
-        } catch (err)  {
-            console.log(err)
-            this.currentlyRefreshing = false
-            throw err
-        }
-
 	}
 
 	loginAttempt(hash) {

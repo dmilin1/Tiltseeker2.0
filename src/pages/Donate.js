@@ -29,7 +29,7 @@ class Donate extends React.Component {
 		if (params.get('session_id')) {
 			var donation = (await this.props.axios({
 				method: 'post',
-				url: '/submitDonation', 
+				url: '/na1/submitDonation', 
 				data: {
 					sessionId: params.get('session_id')
 				},
@@ -40,7 +40,7 @@ class Donate extends React.Component {
 			})
 		}
 
-		var donations = (await this.props.axios.get('/getDonations'))?.data
+		var donations = (await this.props.axios.get('/na1/getDonations'))?.data
 		var totalDonated = donations.reduce((sum, donation) => sum + this.amtAfterFees(donation.amount), 0)
 		var pricePerSecond = this.state.pricePerHour / (60 * 60)
 		var daysLeft = (((donations[0]?.paidAt ?? new Date().getTime() / 1000) + (totalDonated / pricePerSecond)) - (new Date().getTime() / 1000)) / (60 * 60 * 24)

@@ -13,9 +13,11 @@ import { library } from '@fortawesome/fontawesome-svg-core'
 import { faHome, faToggleOn, faToggleOff } from '@fortawesome/free-solid-svg-icons'
 
 
+import GlobalContext from './GlobalContext.js';
 import Navbar from './components/Navbar.js'
 import Home from './pages/Home.js'
 import BestBans from './pages/BestBans.js'
+import ChampionStats from './pages/ChampionStats'
 import About from './pages/About.js'
 import Donate from './pages/Donate.js'
 import DesktopApp from './pages/DesktopApp.js'
@@ -34,9 +36,9 @@ axiosRetry(axios, {
 });
 
 if (process.env.NODE_ENV === 'development') {
-	axios.defaults.baseURL = 'http://localhost:3001/api/na1'
+	axios.defaults.baseURL = 'http://localhost:3001/api/'
 } else {
-	axios.defaults.baseURL = window.location.protocol + '//' + window.location.host + '/api/na1'
+	axios.defaults.baseURL = window.location.protocol + '//' + window.location.host + '/api/'
 }
 
 if (window.desktop) {
@@ -98,66 +100,63 @@ class App extends React.Component {
 		var params = new URLSearchParams(window.location.href)
 		var desktop = params.get('desktop')
 		return (
-			<BrowserRouter>
-				<div
-					className={css(styles.flex)}
-					onMouseDown={() => sendMouseState('down') }
-					onMouseUp={() => sendMouseState('up') }
-					onMouseLeave={() => sendMouseState('up') }
-				>
-					{!desktop ? (
-						<Navbar
-							theme={this.state.theme}
-							setTheme={this.setTheme}
-						/>
-					) : null}
-					<Route path="/" exact render={(props) => {return (
-						<Home
-							theme={this.state.theme}
-							regions={this.state.regions}
-							selectedRegion={this.state.selectedRegion}
-							setRegion={this.setRegion}
-							summonerName={this.state.summonerName}
-							setSummonerName={this.setSummonerName}
-						/>
-					)}} />
-					<Route path="/tiltseek/" render={(props) => {return (
-						<Tiltseek
-							theme={this.state.theme}
-							regions={this.state.regions}
-							desktop={desktop}
-						/>
-					)}} />
-					<Route path="/about/" render={(props) => {return (
-						<About
-							theme={this.state.theme}
-						/>
-					)}} />
-					<Route path="/desktopapp/" render={(props) => {return (
-						<DesktopApp
-							theme={this.state.theme}
-						/>
-					)}} />
-					<Route path="/donate/" render={(props) => {return (
-						<Donate
-							theme={this.state.theme}
-							axios={axios}
-						/>
-					)}} />
-					<Route path="/bestbans/" render={(props) => {return (
-						<BestBans
-							theme={this.state.theme}
-						/>
-					)}} />
-					<Route path="/compchecker/" render={(props) => {return (
-						<CompChecker
-							theme={this.state.theme}
-							axios={axios}
-						/>
-					)}} />
-		    </div>
-			</BrowserRouter>
-	  );
+            <GlobalContext.Provider value={{
+                axios,
+                globalTheme: this.state.theme,
+            }}>
+                <BrowserRouter>
+                    <div
+                        className={css(styles.flex)}
+                        onMouseDown={() => sendMouseState('down') }
+                        onMouseUp={() => sendMouseState('up') }
+                        onMouseLeave={() => sendMouseState('up') }
+                    >
+                        {!desktop ? (
+                            <Navbar setTheme={this.setTheme}/>
+                        ) : null}
+                        <Route path="/" exact render={(props) => (
+                            <Home
+                                theme={this.state.theme}
+                                regions={this.state.regions}
+                                selectedRegion={this.state.selectedRegion}
+                                setRegion={this.setRegion}
+                                summonerName={this.state.summonerName}
+                                setSummonerName={this.setSummonerName}
+                            />
+                        )} />
+                        <Route path="/tiltseek/" render={(props) => (
+                            <Tiltseek
+                                regions={this.state.regions}
+                            />
+                        )} />
+                        <Route path="/about/" render={(props) => (
+                            <About
+                                theme={this.state.theme}
+                            />
+                        )} />
+                        <Route path="/desktopapp/" render={(props) => (
+                            <DesktopApp
+                                theme={this.state.theme}
+                            />
+                        )} />
+                        <Route path="/donate/" render={(props) => (
+                            <Donate
+                                theme={this.state.theme}
+                                axios={axios}
+                            />
+                        )} />
+                        <Route path="/bestbans/" render={(props) => <BestBans/>} />
+                        <Route path="/championstats/" render={(props) => <ChampionStats/>} />
+                        <Route path="/compchecker/" render={(props) => (
+                            <CompChecker
+                                theme={this.state.theme}
+                                axios={axios}
+                            />
+                        )} />
+                </div>
+                </BrowserRouter>
+            </GlobalContext.Provider>
+	    );
 	}
 }
 

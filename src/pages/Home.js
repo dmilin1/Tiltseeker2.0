@@ -199,7 +199,7 @@ var loadStyles = (t) => {
 			outline: 'none',color: theme('text2', t, false),
 			backgroundColor: theme('buttonAccent', t, false),
 			borderColor: theme('buttonAccent', t, false),
-			minWidth: '60%',
+			minWidth: '75%',
 			'@media (min-width: 600px)': {
 				minWidth: '50%',
 			},

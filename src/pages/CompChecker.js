@@ -45,7 +45,7 @@ class CompChecker extends React.Component {
 				championData[championData[champ].name] = championData[champ]
 			}
 
-			var stats = (await this.props.axios.get('/stats')).data
+			var stats = (await this.props.axios.get('/na1/stats')).data
 
 			console.log(stats)
 			console.log(championData)
@@ -83,6 +83,8 @@ class CompChecker extends React.Component {
 			var probabilityData = WinRateCalc.calcProbability(probabilityInput, this.state.stats)
 			var winRate = probabilityData.probability || 0.5
 			var totalSamples = probabilityData.totalSamples
+
+            console.log(probabilityInput)
 	
 			return (
 				<div className={css(styles.container)}>
@@ -117,7 +119,7 @@ class CompChecker extends React.Component {
 									{((team == 0 ? winRate : 1 - winRate ) * 100).toFixed(1) + '%'}
 								</div>
 								{Array.range(0 + 5 * team, 5 + 5 * team).map(i => (
-									<div className={css(styles.inputContainer)}>
+									<div className={css(styles.inputContainer)} key={i}>
 										<input
 											className={css(styles.input)}
 											key={i}
