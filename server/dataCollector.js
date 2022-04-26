@@ -422,7 +422,7 @@ class DataCollector {
         this.champStats = new ChampStats()
 
 		this._connect()
-        setInterval(this.getStats, this.refreshInterval)
+        setInterval(() => this.getStats(), 30000)
 	}
 
 	_connect() {
