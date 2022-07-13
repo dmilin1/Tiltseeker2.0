@@ -377,7 +377,11 @@ class ChampStats {
             let hrsSinceGame = ( Date.now() - match.info.gameStartTimestamp ) / ( 1000 * 60 * 60 )
             skips = 0
             currentGameId += 1
-            if (!this.version.startsWith(match.info.gameVersion.split('.').slice(0,2).join('.'))) {
+            console.log(this.version, match.info.gameVersion)
+            if (
+                this.version.split('.')[0] * 1000 + this.version.split('.')[1]
+                < match.info.gameVersion.split('.')[0] * 1000 + match.info.gameVersion.split('.')[1]
+            ) {
                 console.log(`${currentGameId} (${this.data?.matchCount}): skipped - wrong game version`)
                 consecutiveNewVersions += 1
                 if (consecutiveNewVersions > 10) {
