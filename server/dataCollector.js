@@ -263,6 +263,7 @@ class ChampStats {
     }
 
     async getData() {
+        this.deleteSavedData()
         if (this.version === null) {
             await this.setVersion()
         }
@@ -299,12 +300,20 @@ class ChampStats {
 
     async deleteSavedData() {
         let baskets = (await pantry.details()).baskets
-        await Promise.all(baskets.map(async basket => {
-            let res = await pantry.basket.delete(basket.name)
-            console.log(res)
-            await sleep(2000)
-            return res
-        }))
+        if (baskets.length > 70) {
+            let basketsToDelete = baskets.map(b => ({
+                ...b,
+                version: b.name.split('_')[0].split('.').reduce((total, x, i) => total + x * 1000 ** (2 - i), 0)
+            }))
+            .sort((a, b) => a.version > b.version ? 1 : -1)
+            .slice(0, 30)
+            await Promise.all(basketsToDelete.map(async basket => {
+                let res = await pantry.basket.delete(basket.name)
+                console.log(res)
+                await sleep(2000)
+                return res
+            }))
+        }
         this.data = null
     }
 
@@ -378,8 +387,8 @@ class ChampStats {
             skips = 0
             currentGameId += 1
             if (
-                this.version.split('.')[0] * 1000 + this.version.split('.')[1]
-                < match.info.gameVersion.split('.')[0] * 1000 + match.info.gameVersion.split('.')[1]
+                this.version.split('.')[0] * 1000 + this.version.split('.')[1] * 1
+                < match.info.gameVersion.split('.')[0] * 1000 + match.info.gameVersion.split('.')[1] * 1
             ) {
                 console.log(`${currentGameId} (${this.data?.matchCount}): skipped - wrong game version`)
                 consecutiveNewVersions += 1
