@@ -354,7 +354,7 @@ class ChampStats {
     }
 
     async fetch() {
-        const fetchCurrGameId = async () => (await axios.get('https://na1.api.riotgames.com/lol/spectator/v4/featured-games', this.RIOT_HEADERS)).data.gameList[0].gameId - 150000
+        const fetchCurrGameId = async () => (await axios.get('https://na1.api.riotgames.com/lol/spectator/v4/featured-games', this.RIOT_HEADERS)).data.gameList[Math.floor(Math.random()*5)].gameId - 150000
         const skipPattern = [1,1,1].concat((()=>{let[x, y]=[1,1];let l=[];while(l.length<50){[x,y]=[y,x+y];l.push(x);l.concat([...Array(l.length).keys()])};return l})().flatMap((v,i)=>[v,...[...Array(i)].map((_,i)=>1)]))
         let currentGameId = await fetchCurrGameId()
         let skips = 0
