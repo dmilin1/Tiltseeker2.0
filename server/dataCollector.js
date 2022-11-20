@@ -1,9 +1,46 @@
 const mongoose = require('mongoose');
 const axios = require('axios');
 const axiosRetry = require('axios-retry');
-const pantryLib = require('pantry-node')
+const { S3Client, PutObjectCommand, GetObjectCommand } = require("@aws-sdk/client-s3");
+// const { Buffer } = require("node:buffer");
 
-const realPantry = new pantryLib(process.env.PANTRY_ID)
+const s3Client = new S3Client({
+    region: "us-west-1",
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_ACCESS_KEY_SECRET,
+    }
+});
+
+async function putObject(bucket, key, obj) {
+    const buf = Buffer.from(JSON.stringify(obj))
+    let data = await s3Client.send(new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: buf,
+        ContentEncoding: 'base64',
+        ContentType: 'application/json'
+    }))
+}
+
+function getObject(bucket, key) {
+    return new Promise(async (resolve, reject) => {
+        const getObjectCommand = new GetObjectCommand({ Bucket: bucket, Key: key })
+        try {
+            const response = await s3Client.send(getObjectCommand)
+            let responseDataChunks = []
+            response.Body.once('error', err => reject(err))
+            response.Body.on('data', chunk => responseDataChunks.push(chunk))
+            response.Body.once('end', () => resolve(JSON.parse(responseDataChunks.join(''))))
+        } catch (err) {
+            if (err.Code === 'NoSuchKey') {
+                return resolve(null)
+            }
+            return reject(err)
+        } 
+    })
+}
+
 
 const sleep = (time) => new Promise(res => setTimeout(res, time))
 
@@ -26,15 +63,6 @@ const doWithRetry = async (func, attempts, ...args) => {
     }
 }
 
-// Override pantry functions to include retry
-pantry = new pantryLib(process.env.PANTRY_ID)
-pantry.basket.create    = (...args) => doWithRetry(realPantry.basket.create.bind(realPantry.basket), 3, ...args)
-pantry.basket.delete    = (...args) => doWithRetry(realPantry.basket.delete.bind(realPantry.basket), 3, ...args)
-pantry.basket.get       = (...args) => doWithRetry(realPantry.basket.get.bind(realPantry.basket), 3, ...args)
-pantry.basket.link      = (...args) => doWithRetry(realPantry.basket.link.bind(realPantry.basket), 3, ...args)
-pantry.basket.update    = (...args) => doWithRetry(realPantry.basket.update.bind(realPantry.basket), 3, ...args)
-pantry.details          = (...args) => doWithRetry(realPantry.details.bind(realPantry), 3, ...args)
-
 axiosRetry(axios, {
 	retries: 3,
 	retryDelay: axiosRetry.exponentialDelay,
@@ -42,23 +70,25 @@ axiosRetry(axios, {
 
 axios.interceptors.response.use((res) => {
     return res;
-  }, (err) => {
-		var promise = new Promise((resolve, reject) => {
-			if (err.response.status === 429) {
-				console.log('waiting ' + (err.response.headers['retry-after'] * 1000 + 500) + ' for request')
-				setTimeout(() => {
-					axios.get(err.response.config.url, {
-						headers: err.response.config.headers
-					})
-					.then((res) => resolve(res))
-					.catch((err) => reject(err))
-				}, err.response.headers['retry-after'] * 1000 + 500)
-			} else {
-				reject(err)
-			}
-		})
+}, (err) => {
+    var promise = new Promise((resolve, reject) => {
+        if (err?.response?.status === 429) {
+            console.log('waiting ' + (err.response.headers['retry-after'] * 1000 + 500) + ' for request')
+            setTimeout(() => {
+                axios.get(err.response.config.url, {
+                    headers: err.response.config.headers
+                })
+                .then((res) => resolve(res))
+                .catch((err) => reject(err))
+            }, err.response.headers['retry-after'] * 1000 + 500)
+        } else {
+            reject(err)
+        }
+    })
     return promise;
-  });
+});
+
+axios.defaults.timeout = 10000
 
 
 // define database models
@@ -268,53 +298,18 @@ class ChampStats {
             await this.setVersion()
         }
         console.log('loading data')
-        let basketsOfVersion = (await pantry.details()).baskets.filter(basket => basket.name.split('_')[0] === this.version)
-        let allData = []
-        for (let basket of basketsOfVersion) {
-            await sleep(2000)
-            allData.push(pantry.basket.get(basket.name))
-        }
-        allData = await Promise.all(allData)
-        await sleep(2000)
+        let data = await getObject('tiltseeker', 'champData.json')
         console.log('loaded data')
-        this.data = Object.assign({ matchCount: 0, lastGameId: null }, ...allData)
-        console.log(this.data.matchCount)
+        this.data = Object.assign(this.data, data)
     }
 
     async save() {
-        let i = 0
-        let baskets = (await pantry.details()).baskets
-        while (true) {
-            let basketName = `${this.version}_${i}-${i + this.CHUNKS_PER_BASKET-1}`
-            let createOrUpdate = !baskets.find(basket => basket.name === basketName) ? 'create' : 'update'
-            let chunk = Object.fromEntries(Object.entries(this.data).slice(i, i + this.CHUNKS_PER_BASKET))
-            if (!Object.keys(chunk).length) {
-                break
-            }
-            await pantry.basket[createOrUpdate](basketName, chunk)
-            await sleep(2000)
-            i += this.CHUNKS_PER_BASKET
-        }
+        await putObject('tiltseeker', 'champData.json', this.data)
         console.log('data saved')
     }
 
     async deleteSavedData() {
-        let baskets = (await pantry.details()).baskets
-        if (baskets.length > 70) {
-            let basketsToDelete = baskets.map(b => ({
-                ...b,
-                version: b.name.split('_')[0].split('.').reduce((total, x, i) => total + x * 1000 ** (2 - i), 0)
-            }))
-            .sort((a, b) => a.version > b.version ? 1 : -1)
-            .slice(0, 30)
-            await Promise.all(basketsToDelete.map(async basket => {
-                let res = await pantry.basket.delete(basket.name)
-                console.log(res)
-                await sleep(2000)
-                return res
-            }))
-        }
-        this.data = null
+        this.data = { matchCount: 0, lastGameId: null }
     }
 
     async addMatch(match) {
@@ -362,7 +357,7 @@ class ChampStats {
 
         console.log(`${currentGameId} (${this.data?.matchCount}): initial game id`)
         while (true) {
-            await sleep(this.data?.matchCount < 100000 ? 50 : this.data.matchCount / 50)
+            await sleep(this.data?.matchCount < 100000 ? 50 : this.data?.matchCount / 50)
             let match = null
             try {
                 match = (await axios.get('https://americas.api.riotgames.com/lol/match/v5/matches/NA1_' + currentGameId, this.RIOT_HEADERS)).data
@@ -376,6 +371,8 @@ class ChampStats {
                     console.log(`${currentGameId} (${this.data?.matchCount}): skipped - does not exist`)
                     currentGameId += skipPattern[skips]
                     skips += 1
+                } else if (e.code === 'ECONNABORTED') {
+                    console.log(`${currentGameId} (${this.data?.matchCount}): retried - request timed out`)
                 } else {
                     console.log('Weird Riot server error. Waiting...')
                     currentGameId += 1

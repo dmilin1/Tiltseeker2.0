@@ -3,14 +3,18 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.213.0",
     "@babel/plugin-proposal-optional-chaining": "^7.12.7",
     "@fortawesome/fontawesome-svg-core": "^1.2.22",
     "@fortawesome/free-solid-svg-icons": "^5.10.2",
     "@fortawesome/react-fontawesome": "^0.1.4",
     "aphrodite": "^2.3.1",
+    "aws-s3": "^2.0.5",
     "axios": "^0.26.1",
     "axios-retry": "^3.1.2",
+    "body-parser": "^1.19.0",
     "crypto-js": "^4.0.0",
+    "express": "^4.17.1",
     "heroku-self-ping": "^2.0.1",
     "mongoose": "^5.8.4",
     "npm-run-all": "^4.1.5",
@@ -22,9 +26,7 @@
     "react-router-dom": "^5.3.0",
     "react-scripts": "^5.0.0",
     "redux": "^4.0.2",
-    "stripe": "^8.127.0",
-    "body-parser": "^1.19.0",
-    "express": "^4.17.1"
+    "stripe": "^8.127.0"
   },
   "scripts": {
     "start": "node server",
