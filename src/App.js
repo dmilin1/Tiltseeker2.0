@@ -36,7 +36,7 @@ axiosRetry(axios, {
 });
 
 if (process.env.NODE_ENV === 'development') {
-	axios.defaults.baseURL = 'http://localhost:3001/api/'
+	axios.defaults.baseURL = 'http://localhost:8080/api/'
 } else {
 	axios.defaults.baseURL = window.location.protocol + '//' + window.location.host + '/api/'
 }
