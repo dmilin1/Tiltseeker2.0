@@ -73,10 +73,13 @@ startListening = () => {
 
 	app.get('/api/:region/*', (req, res) => {
 		// Check if region is valid to prevent domain hacks
-		if (['na1', 'euw1', 'eun1',
-		'br1', 'tr1', 'ru', 'la1',
-		'la2', 'oc1', 'kr', 'jp1',
-        'americas', 'europe', 'asia'].indexOf(req.params.region) === -1) {
+		if ([
+			'na1', 'euw1', 'eun1',
+			'br1', 'tr1', 'ru', 'la1',
+			'la2', 'oc1', 'kr', 'jp1',
+			'americas', 'europe', 'asia',
+			'ph2', 'sg2', 'th2','tw2', 'vn2'
+		].indexOf(req.params.region) === -1) {
 			res.status(601).send('invalid region')
 			return
 		}

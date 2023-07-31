@@ -43,6 +43,26 @@ export const regions = [
 		name: 'JP',
 		code: 'jp1',
 	},
+	{
+		name: 'PH',
+		code: 'ph2',
+	},
+	{
+		name: 'SG',
+		code: 'sg2',
+	},
+	{
+		name: 'TH',
+		code: 'th2',
+	},
+	{
+		name: 'TW',
+		code: 'tw2',
+	},
+	{
+		name: 'VN',
+		code: 'vn2',
+	},
 ]
 
 export const regionMap = {
@@ -55,6 +75,11 @@ export const regionMap = {
 	la1: 'americas',
 	la2: 'americas',
 	oc1: 'americas',
-	kr: 'asia',
-	jp1: 'asia',
+	kr: 'apac',
+	jp1: 'apac',
+	ph2: 'sea',
+	sg2: 'sea',
+	th2: 'sea',
+	tw2: 'sea',
+	vn2: 'sea',
 }
