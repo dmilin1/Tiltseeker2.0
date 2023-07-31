@@ -472,7 +472,7 @@ class DataCollector {
 
 		for (var idBatch of batchedChampionIds) {
 			var statsBatch = await Promise.all(idBatch.map(async (id) => { 
-				return (await axios.get(`https://axe.lolalytics.com/mega/?ep=champion&v=1&patch=0&cid=${id}&lane=default&tier=all&queue=420&region=all`)).data
+				return (await axios.get(`https://ax.lolalytics.com/mega/?ep=champion&v=1&patch=0&cid=${id}&lane=default&tier=all&queue=420&region=all`)).data
 			}))
 			statsBatch.forEach((champData, i) => {
 				var champId = idBatch[i]
@@ -522,11 +522,11 @@ class DataCollector {
 		for (var idBatch of batchedChampionIds) {
 
 			var countersBatch = await Promise.all(idBatch.map(async (id) => { 
-				return (await axios.get(`https://axe.lolalytics.com/mega/?ep=counter&p=d&v=1&patch=0&cid=${id}&lane=default&tier=all`)).data
+				return (await axios.get(`https://ax.lolalytics.com/mega/?ep=counter&p=d&v=1&patch=0&cid=${id}&lane=default&tier=all`)).data
 			}))
 
 			var synergiesBatch = await Promise.all(idBatch.map(async (id) => { 
-				return (await axios.get(`https://axe.lolalytics.com/mega/?ep=champion2&v=1&patch=0&cid=${id}&lane=default&tier=all&queue=420&region=all`)).data
+				return (await axios.get(`https://ax.lolalytics.com/mega/?ep=champion2&v=1&patch=0&cid=${id}&lane=default&tier=all&queue=420&region=all`)).data
 			}))
 
 			var lanes = ['top', 'jungle', 'mid', 'support', 'bottom']
