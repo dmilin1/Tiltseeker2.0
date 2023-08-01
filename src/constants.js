@@ -74,7 +74,7 @@ export const regionMap = {
 	ru: 'europe',
 	la1: 'americas',
 	la2: 'americas',
-	oc1: 'americas',
+	oc1: 'sea',
 	kr: 'apac',
 	jp1: 'apac',
 	ph2: 'sea',

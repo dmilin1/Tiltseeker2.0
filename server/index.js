@@ -77,8 +77,9 @@ startListening = () => {
 			'na1', 'euw1', 'eun1',
 			'br1', 'tr1', 'ru', 'la1',
 			'la2', 'oc1', 'kr', 'jp1',
-			'americas', 'europe', 'asia',
-			'ph2', 'sg2', 'th2','tw2', 'vn2'
+			'ph2', 'sg2', 'th2','tw2',
+			'vn2', 'americas', 'europe',
+			'apac', 'sea',
 		].indexOf(req.params.region) === -1) {
 			res.status(601).send('invalid region')
 			return
