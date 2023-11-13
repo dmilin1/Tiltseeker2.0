@@ -147,3 +147,65 @@ dataCollector.getStats()
 	console.log('failed initial stats refresh')
     console.log(err)
 })
+
+// async function lolalyticsReq(url, attempts=0) {
+// 	try {
+// 		return (await axios.get(url)).data;
+// 	} catch (e) {
+// 		console.log('retrying lolalytics request');
+// 		if (attempts < 3) {
+// 			return lolalyticsReq(url, attempts+1);
+// 		} else {
+// 			throw e;
+// 		}
+// 	}
+// }
+
+
+// (async () => {
+// 	var currentGameVersion = (await axios.get('https://ddragon.leagueoflegends.com/api/versions.json')).data[0]
+// 	var championData = (await axios.get(`https://ddragon.leagueoflegends.com/cdn/${currentGameVersion}/data/en_US/champion.json`)).data.data
+// 	var championIds = Object.values(championData).map(champ => Number(champ.key)).sort((a, b) => a - b)
+	
+// 	var batchSize = 30
+
+// 	var batchedChampionIds = [...Array(Math.ceil(championIds.length/batchSize)).keys()].map(i => championIds.slice(i*batchSize, (i+1)*batchSize))
+
+// 	var stats = {}
+
+// 	for (var id of championIds) {
+// 		try {
+// 			var champData = await lolalyticsReq(`https://ax.lolalytics.com/mega/?ep=champion&v=1&patch=0&cid=${id}&lane=default&tier=all&queue=420&region=all`);
+// 			console.log(`${id}: success`);
+// 		} catch (e) {
+// 			console.log(`${id}: failure`);
+// 		}
+// 		try {
+// 			stats[id] = {
+// 				_id: id,
+// 				count: champData.n,
+
+// 				winRateAvg: champData.header.wr / 100,
+// 				banRateAvg: champData.header.br / 100,
+// 				pickRateAvg: champData.header.pr / 100,
+				
+// 				defaultLane: champData.header.defaultLane,
+// 				lanes: {
+// 					top: champData.nav.lanes.top / 100,
+// 					jungle: champData.nav.lanes.jungle / 100,
+// 					middle: champData.nav.lanes.middle / 100,
+// 					bottom: champData.nav.lanes.bottom / 100,
+// 					support: champData.nav.lanes.support / 100,
+// 				},
+
+// 				spell1Id: champData.summary.sums[0],
+// 				spell2Id: champData.summary.sums[1],
+// 			}
+// 		} catch (e) {
+// 			noDataChamps.push(champId)
+// 		}
+// 	}
+
+// 	console.log(stats)
+// 	console.log('SUCCESS');
+// })();

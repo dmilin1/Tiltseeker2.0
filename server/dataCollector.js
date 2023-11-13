@@ -457,102 +457,109 @@ class DataCollector {
 		});
 	}
 
+    async lolalyticsReq(url, attempts=0) {
+        try {
+            return (await axios.get(url)).data;
+        } catch (e) {
+            console.log('retrying lolalytics request');
+            if (attempts < 3) {
+                return this.lolalyticsReq(url, attempts+1);
+            } else {
+                throw e;
+            }
+        }
+    }
+
+    async runOperations(maxParallel, operations) {
+        await Promise.all([...(new Array(maxParallel))].map(() => new Promise(async res => {
+            while (operations.length) {
+                const op = operations.shift();
+                if (op) await op();
+            }
+            res();
+        })));
+    }
+
 	async getMatchups() {
 		var currentGameVersion = (await axios.get('https://ddragon.leagueoflegends.com/api/versions.json')).data[0]
-		var championData = (await axios.get(`https://ddragon.leagueoflegends.com/cdn/${currentGameVersion}/data/en_US/champion.json`)).data.data
-		var championIds = Object.values(championData).map(champ => Number(champ.key)).sort((a, b) => a - b)
+		var championData = (await axios.get(`https://ddragon.leagueoflegends.com/cdn/${currentGameVersion}/data/en_US/champion.json`)).data.data;
+		var championIds = Object.values(championData).map(champ => Number(champ.key)).sort((a, b) => a - b);
+        var championDataById = championData = Object.values(championData).reduce((c, champ) => ({ ...c, [champ.key]: champ }), championData);
 
 		var noDataChamps = []
-
-		var batchSize = 10
-
-		var batchedChampionIds = [...Array(Math.ceil(championIds.length/batchSize)).keys()].map(i => championIds.slice(i*batchSize, (i+1)*batchSize))
-
 		var stats = {}
-
-		for (var idBatch of batchedChampionIds) {
-			var statsBatch = await Promise.all(idBatch.map(async (id) => { 
-				return (await axios.get(`https://ax.lolalytics.com/mega/?ep=champion&v=1&patch=0&cid=${id}&lane=default&tier=all&queue=420&region=all`)).data
-			}))
-			statsBatch.forEach((champData, i) => {
-				var champId = idBatch[i]
-			
-				try {
-					stats[champId] = {
-						_id: champId,
-						count: champData.n,
-
-						winRateAvg: champData.header.wr / 100,
-						banRateAvg: champData.header.br / 100,
-						pickRateAvg: champData.header.pr / 100,
-						
-						defaultLane: champData.header.defaultLane,
-						lanes: {
-							top: champData.nav.lanes.top / 100,
-							jungle: champData.nav.lanes.jungle / 100,
-							middle: champData.nav.lanes.middle / 100,
-							bottom: champData.nav.lanes.bottom / 100,
-							support: champData.nav.lanes.support / 100,
-						},
-
-						spell1Id: champData.summary.sums[0],
-						spell2Id: champData.summary.sums[1],
-					}
-				} catch (e) {
-					noDataChamps.push(champId)
-				}
-			})
-		}
-
-		if (noDataChamps.length > 5) {
-			throw Error('failed to fetch stats from lolalytics')
-		}
-
-		console.log('fetched stats from lolalytics')
-
 		var matchups = {}
 
-		championIds.forEach((champA, i) => championIds.slice(i).forEach((champB, i) => {
+        championIds.forEach((champA, i) => championIds.slice(i).forEach((champB, i) => {
 			matchups[`${champA}v${champB}`] = 0
 			matchups[`${champA}v${champB}_total`] = 0
 			matchups[`${champA}w${champB}`] = 0
 			matchups[`${champA}w${champB}_total`] = 0
 		}))
 
-		for (var idBatch of batchedChampionIds) {
+        const operations = championIds.map((champId) => async () => {
+            const champData = await this.lolalyticsReq(`https://ax.lolalytics.com/mega/?ep=champion&v=1&patch=0&cid=${champId}&lane=default&tier=all&queue=420&region=all`);
+            try {
+                stats[champId] = {
+                    _id: champId,
+                    count: champData.n,
 
-			var countersBatch = await Promise.all(idBatch.map(async (id) => { 
-				return (await axios.get(`https://ax.lolalytics.com/mega/?ep=counter&p=d&v=1&patch=0&cid=${id}&lane=default&tier=all`)).data
-			}))
+                    winRateAvg: champData.header.wr / 100,
+                    banRateAvg: champData.header.br / 100,
+                    pickRateAvg: champData.header.pr / 100,
+                    
+                    defaultLane: champData.header.defaultLane,
+                    lanes: {
+                        top: champData.nav.lanes.top / 100,
+                        jungle: champData.nav.lanes.jungle / 100,
+                        middle: champData.nav.lanes.middle / 100,
+                        bottom: champData.nav.lanes.bottom / 100,
+                        support: champData.nav.lanes.support / 100,
+                    },
 
-			var synergiesBatch = await Promise.all(idBatch.map(async (id) => { 
-				return (await axios.get(`https://ax.lolalytics.com/mega/?ep=champion2&v=1&patch=0&cid=${id}&lane=default&tier=all&queue=420&region=all`)).data
-			}))
+                    spell1Id: champData.summary.sums[0],
+                    spell2Id: champData.summary.sums[1],
+                }
+            } catch (e) {
+                noDataChamps.push(champId)
+            }
 
-			var lanes = ['top', 'jungle', 'mid', 'support', 'bottom']
 
-			lanes.forEach(lane => {
-				countersBatch.forEach((counter, i) => (counter[`enemy_${lane}`] || []).forEach(([champB, gamesPlayed, gamesWon, enemyOverallLaneWinrate]) => {
-					var champA = idBatch[i]
-					if (champA <= champB) {
-						matchups[`${champA}v${champB}`] += Number(gamesWon)
-						matchups[`${champA}v${champB}_total`] += Number(gamesPlayed)
-					}
-				}))
-				synergiesBatch.forEach((synergy, i) => (synergy[`team_${lane}`] || []).forEach(([champB, gamesPlayed, gamesWon, enemyOverallLaneWinrate]) => {
-					var champA = idBatch[i]
-					if (champA <= champB) {
-						matchups[`${champA}w${champB}`] += Number(gamesWon)
-						matchups[`${champA}w${champB}_total`] += Number(gamesPlayed)
-					}
-				}))
+            const counters = await this.lolalyticsReq(`https://ax.lolalytics.com/mega/?ep=counter&p=d&v=1&patch=0&cid=${champId}&lane=default&tier=all`);
+            const synergies = await this.lolalyticsReq(`https://ax.lolalytics.com/mega/?ep=champion2&v=1&patch=0&cid=${champId}&lane=default&tier=all&queue=420&region=all`);
+
+			['top', 'jungle', 'mid', 'support', 'bottom'].forEach(lane => {
+                const counterData = counters[`enemy_${lane}`];
+                if (counterData) {
+                    counterData.forEach(([champB, gamesPlayed, gamesWon, enemyOverallLaneWinrate]) => {
+                        var champA = champId;
+                        if (champA <= champB) {
+                            matchups[`${champA}v${champB}`] += Number(gamesWon)
+                            matchups[`${champA}v${champB}_total`] += Number(gamesPlayed)
+                        }
+                    });
+                }
+                const synergyData = synergies[`team_${lane}`];
+                if (synergyData) {
+                    synergyData.forEach(([champB, gamesPlayed, gamesWon, enemyOverallLaneWinrate]) => {
+                        var champA = champId;
+                        if (champA <= champB) {
+                            matchups[`${champA}w${champB}`] += Number(gamesWon)
+                            matchups[`${champA}w${champB}_total`] += Number(gamesPlayed)
+                        }
+                    });
+                }
 			})
+            matchups[`${champId}w${champId}`] = counters.win
+            matchups[`${champId}w${champId}_total`] = counters.pick
 
-			countersBatch.forEach((counter, i) => {
-				var champId = idBatch[i]
-				matchups[`${champId}w${champId}`] = counter.win
-				matchups[`${champId}w${champId}_total`] = counter.pick
-			})
+            console.log(`Loaded ${championDataById[champId].name.padEnd(15, ' ')} - ${operations.length} ops left to start.`);
+        })
+
+        await this.runOperations(30, operations);
+
+		if (noDataChamps.length > 5) {
+			throw Error('failed to fetch stats from lolalytics')
 		}
 
 		console.log('fetched synergies and counters from lolalytics')
