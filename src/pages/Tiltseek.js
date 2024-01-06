@@ -93,7 +93,7 @@ function Tiltseek(props) {
                 newData.championMasteries = await Promise.all(newData.currentGame.participants.map(async participant => {
                     let mastery = null
                     try {
-                        mastery = (await axios.get(`${data.region}/lol/champion-mastery/v4/champion-masteries/by-summoner/${participant.summonerId}/by-champion/${participant.championId}`)).data
+                        mastery = (await axios.get(`${data.region}/lol/champion-mastery/v4/champion-masteries/by-puuid/${participant.puuid}/by-champion/${participant.championId}`)).data
                     } catch (e) {
                         if (e?.response?.status !== 404) {
                             throw e
