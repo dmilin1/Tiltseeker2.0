@@ -14,6 +14,10 @@ export default () => {
         res.send(await DB.getMatchups(await DB.getNewestPatch()));
     }));
 
+    app.get('/championStats', asyncHandler(async (_: Request, res: Response) => {
+        res.send(await DB.getChampionStats(await DB.getNewestPatch()));
+    }));
+
     app.listen(3000, () => {
         console.log('Application started on port 3000!');
     });

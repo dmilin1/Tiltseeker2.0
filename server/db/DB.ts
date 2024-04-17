@@ -22,6 +22,32 @@ type Matchups = {
     }
 }
 
+type ChampionStats = {
+    [championId: number]: {
+        championId: number;
+        patch: string;
+        total: number;
+        wins: number;
+        timePlayed: number;
+        firstBloodParticipate: number;
+        visionScore: number;
+        magicDamageDealtToChampions: number;
+        physicalDamageDealtToChampions: number;
+        trueDamageDealtToChampions: number;
+        totalDamageDealtToChampions: number;
+        totalDamageTaken: number;
+        damageDealtToObjectives: number;
+        damageDealtToTurrets: number;
+        kills: number;
+        deaths: number;
+        assists: number;
+        wardsPlaced: number;
+        neutralMinionsKilled: number;
+        objectivesStolen: number;
+        goldEarned: number;
+    }
+}
+
 export default class DB {
     private static db: Database<sqlite3.Database, sqlite3.Statement>;
 
@@ -142,20 +168,22 @@ export default class DB {
 
     public static async getNewestPatch(): Promise<string> {
         await DB.init();
-        const patches = await DB.db.all('SELECT DISTINCT(patch) AS patch FROM champions');
-        patches.sort((a, b) => patchToNum(String(b.patch)) - patchToNum(String(a.patch)) > 0 ? 1 : -1);
-        return patches[0].patch;
+        return Cache.get('newest-patch', 1000 * 60 * 15, async () => {
+            const patches = await DB.db.all('SELECT DISTINCT(patch) AS patch FROM champions');
+            patches.sort((a, b) => patchToNum(String(b.patch)) - patchToNum(String(a.patch)) > 0 ? 1 : -1);
+            return patches[0].patch;
+        });
     }
 
     public static async getMatchups(patch: string): Promise<Matchups> {
         await DB.init();
         return Cache.get(`matchups-${patch}`, 1000 * 60 * 15, async () => {
-            const matchups = await DB.db.all(`
+            const rows = await DB.db.all(`
                 SELECT * FROM matchup
                 WHERE patch = ?
             `, [patch]);
             const result: Matchups = {};
-            for (const matchup of matchups) {
+            for (const matchup of rows) {
                 if (!result[matchup.championIdA]) {
                     result[matchup.championIdA] = {};
                 }
@@ -169,6 +197,21 @@ export default class DB {
                         total: matchup.total,
                     }
                 };
+            }
+            return result;
+        });
+    }
+
+    public static async getChampionStats(patch: string): Promise<ChampionStats> {
+        await DB.init();
+        return Cache.get(`champion-stats-${patch}`, 1000 * 60 * 15, async () => {
+            const rows = await DB.db.all(`
+                SELECT * FROM champions
+                WHERE patch = ?
+            `, [patch]);
+            const result: ChampionStats = {}
+            for (const row of rows) {
+                result[row.championId] = row;
             }
             return result;
         });
