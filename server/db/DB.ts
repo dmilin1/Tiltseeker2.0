@@ -4,6 +4,23 @@ import './Setup';
 import setup from './Setup';
 import { Database, open } from 'sqlite';
 import { Match } from '../riot/Riot';
+import { patchToNum } from '../utils/Calculations';
+import Cache from '../utils/Cache';
+
+type Matchups = {
+    [championIdA: number]: {
+        [championIdB: number]: {
+            teammates: {
+                wins: number;
+                total: number;
+            },
+            opponents: {
+                wins: number;
+                total: number;
+            }
+        }
+    }
+}
 
 export default class DB {
     private static db: Database<sqlite3.Database, sqlite3.Statement>;
@@ -91,12 +108,11 @@ export default class DB {
             );
         }
 
-        for (const a of match.participants) {
-            for (const b of match.participants) {
-                if (a === b) {
+        for (const participantA of match.participants) {
+            for (const participantB of match.participants) {
+                if (participantA.championId > participantB.championId) {
                     continue;
                 }
-                const [participantA, participantB] = a.championId < b.championId ? [a, b] : [b, a];
                 const opponents = participantA.teamId !== participantB.teamId;
                 promises.push(
                     await DB.db.run(`
@@ -122,5 +138,39 @@ export default class DB {
 
         await Promise.all(promises);
         return true;
+    }
+
+    public static async getNewestPatch(): Promise<string> {
+        await DB.init();
+        const patches = await DB.db.all('SELECT DISTINCT(patch) AS patch FROM champions');
+        patches.sort((a, b) => patchToNum(String(b.patch)) - patchToNum(String(a.patch)) > 0 ? 1 : -1);
+        return patches[0].patch;
+    }
+
+    public static async getMatchups(patch: string): Promise<Matchups> {
+        await DB.init();
+        return Cache.get(`matchups-${patch}`, 1000 * 60 * 15, async () => {
+            const matchups = await DB.db.all(`
+                SELECT * FROM matchup
+                WHERE patch = ?
+            `, [patch]);
+            const result: Matchups = {};
+            for (const matchup of matchups) {
+                if (!result[matchup.championIdA]) {
+                    result[matchup.championIdA] = {};
+                }
+                result[matchup.championIdA][matchup.championIdB] = {
+                    teammates: {
+                        wins: matchup.opponents ? 0 : matchup.wins,
+                        total: matchup.total,
+                    },
+                    opponents: {
+                        wins: matchup.opponents ? matchup.wins : 0,
+                        total: matchup.total,
+                    }
+                };
+            }
+            return result;
+        });
     }
 }

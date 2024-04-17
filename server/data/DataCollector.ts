@@ -1,14 +1,6 @@
 import DB from "../db/DB";
 import Riot, { MatchId, PUUID, Region } from "../riot/Riot";
-
-export function getRandomSample<T>(arr: Array<T>, size: number): T[] {
-    const sample = [];
-    while (sample.length < size && arr.length > 0) {
-        const index = Math.floor(Math.random() * arr.length);
-        sample.push(arr.splice(index, 1)[0]);
-    }
-    return sample;
-}
+import { getRandomSample, patchToNum } from "../utils/Calculations";
 
 const MATCH_ID_LIMIT = 500;
 const SEED_USER_LIMIT = 1_000;
@@ -94,7 +86,7 @@ export default class DataCollector {
             let added = false;
             try {
                 const match = await Riot.getMatch(this.region, matchId);
-                if (!this.newestPatchSeen || this.patchToNum(match.patch) >= this.patchToNum(this.newestPatchSeen)) {
+                if (!this.newestPatchSeen || patchToNum(match.patch) >= patchToNum(this.newestPatchSeen)) {
                     this.newestPatchSeen = match.patch;
                     added = await DB.addMatch(match);
                 } else if (this.matchIds.length < MATCH_ID_LIMIT / 10) {
@@ -110,10 +102,5 @@ export default class DataCollector {
             return added;
         }));
         console.log(`${this.region} - Added ${results.filter(r => r).length} matches`);
-    }
-
-    private patchToNum(patch: string): number {
-        const str = patch.split('.');
-        return parseInt(str[0]) * 1_000 + parseInt(str[1]);
     }
 }

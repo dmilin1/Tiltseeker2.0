@@ -1,4 +1,4 @@
-import { getRandomSample } from "../dataCollector/DataCollector";
+import { getRandomSample } from "../utils/Calculations";
 
 export type RoutingValue = 'AMERICAS' | 'ASIA' | 'EUROPE' | 'SEA';
 export type Region = 'NA1' | 'BR1' | 'EUN1' | 'EUW1' | 'JP1' | 'KR' | 'LA1' | 'LA2' | 'OC1' | 'TR1' | 'RU';
