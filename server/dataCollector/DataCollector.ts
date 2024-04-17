@@ -1,0 +1,119 @@
+import DB from "../db/DB";
+import Riot, { MatchId, PUUID, Region } from "../riot/Riot";
+
+export function getRandomSample<T>(arr: Array<T>, size: number): T[] {
+    const sample = [];
+    while (sample.length < size && arr.length > 0) {
+        const index = Math.floor(Math.random() * arr.length);
+        sample.push(arr.splice(index, 1)[0]);
+    }
+    return sample;
+}
+
+const MATCH_ID_LIMIT = 500;
+const SEED_USER_LIMIT = 1_000;
+
+export default class DataCollector {
+    newestPatchSeen?: string;
+    region: Region;
+    seedUsers: PUUID[] = [];
+    matchIds: MatchId[] = [];
+    delayNextStep = 0;
+
+    constructor(region: Region) {
+        this.region = region;
+    }
+
+    public static async start() {
+        await DB.init();
+        const dataCollectors = [
+            new DataCollector('NA1'),
+            new DataCollector('KR'),
+            new DataCollector('EUW1'),
+        ];
+        await Promise.all(dataCollectors.map(dc => dc.run()));
+    }
+
+    private async run() {
+        while (true) {
+            await this.runStep();
+        }
+    }
+
+    private async runStep() {
+        await this.handleDelay();
+        await this.cleanup();
+        await this.getMatches();
+    }
+
+    private async handleDelay() {
+        if (this.delayNextStep > 0) {
+            console.log(`${this.region} - Delaying next step by ${this.delayNextStep}ms`);
+            await new Promise(res => setTimeout(res, this.delayNextStep));
+            this.delayNextStep = 0;
+        }
+    }
+
+    private async cleanup() {
+        await this.cleanupOldData();
+        await this.cleanupSeedUsers();
+        await this.cleanupMatchIds();
+        console.log(`${this.region} - Seed users: ${this.seedUsers.length}, Match IDs: ${this.matchIds.length}`)
+    }
+
+    private async cleanupOldData() {
+        // TODO: Probably have enough DB for at least 20 million matches so this is a later problem
+    }
+
+    private async cleanupSeedUsers() {
+        if (this.seedUsers.length === 0 && this.matchIds.length === 0) {
+            console.log(`${this.region} - Getting seed users`);
+            this.seedUsers = await Riot.getPlayerSample(this.region);
+        }
+        if (this.seedUsers.length > SEED_USER_LIMIT) {
+            this.seedUsers = this.seedUsers.slice(-SEED_USER_LIMIT);
+        }
+    }
+
+    private async cleanupMatchIds() {
+        const users = getRandomSample(this.seedUsers, 10);
+        const newMatches = (await Promise.all(users.map((puuid) =>
+            Riot.getMatchHistory(this.region, puuid, 10)
+        )))
+            .flat()
+            .filter(matchId => matchId?.startsWith(this.region));
+        this.matchIds.push(...newMatches);
+        if (this.matchIds.length > MATCH_ID_LIMIT) {
+            this.matchIds = this.matchIds.slice(-MATCH_ID_LIMIT);
+        }
+    }
+
+    private async getMatches() {
+        const matchIds = getRandomSample(this.matchIds, 10);
+        const results = await Promise.all(matchIds.map(async (matchId) => {
+            let added = false;
+            try {
+                const match = await Riot.getMatch(this.region, matchId);
+                if (!this.newestPatchSeen || this.patchToNum(match.patch) >= this.patchToNum(this.newestPatchSeen)) {
+                    this.newestPatchSeen = match.patch;
+                    added = await DB.addMatch(match);
+                } else if (this.matchIds.length < MATCH_ID_LIMIT / 10) {
+                    // We're hitting a new patch and are having trouble finding matches. Time to slow down.
+                    this.delayNextStep += 5_000;
+                }
+                if (added) {
+                    this.seedUsers.push(...match.participants.map(p => p.puuid));
+                }
+            } catch (e: any) {
+                console.error(e);
+            }
+            return added;
+        }));
+        console.log(`${this.region} - Added ${results.filter(r => r).length} matches`);
+    }
+
+    private patchToNum(patch: string): number {
+        const str = patch.split('.');
+        return parseInt(str[0]) * 1_000 + parseInt(str[1]);
+    }
+}
