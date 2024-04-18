@@ -6,6 +6,14 @@ import DB from "../db/DB";
 export default () => {
     const app = express();
 
+    if (process.env.NODE_ENV === 'development') {
+        // Disable CORS in development
+        app.use('*', (_, res, next) => {
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            next();
+        });
+    }
+
     app.get('/', async (_: Request, res: Response) => {
         res.send('woot');
     });
