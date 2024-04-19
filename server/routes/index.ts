@@ -26,6 +26,10 @@ export default () => {
         res.send(await DB.getChampionStats(await DB.getNewestPatch()));
     }));
 
+    app.get('/currentPatch', asyncHandler(async (_: Request, res: Response) => {
+        res.send({ patch: await DB.getNewestPatch() });
+    }));
+
     app.listen(3000, () => {
         console.log('Application started on port 3000!');
     });

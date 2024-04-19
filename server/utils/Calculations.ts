@@ -9,7 +9,7 @@ export function getRandomSample<T>(arr: Array<T>, size: number): T[] {
     const sample = [];
     while (sample.length < size && arr.length > 0) {
         const index = Math.floor(Math.random() * arr.length);
-        sample.push(arr.splice(index, 1)[0]);
+        sample.push(arr[index]);
     }
     return sample;
 }

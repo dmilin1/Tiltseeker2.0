@@ -22,8 +22,8 @@ type Matchups = {
     }
 }
 
-type ChampionStats = {
-    [championId: number]: {
+export type ChampionStats = {
+    [championId: number|string]: {
         championId: number;
         patch: string;
         total: number;
@@ -45,6 +45,11 @@ type ChampionStats = {
         neutralMinionsKilled: number;
         objectivesStolen: number;
         goldEarned: number;
+
+        winRate: number;
+        pickRate: number;
+        banRate: number;
+        influence: number;
     }
 }
 
@@ -77,16 +82,37 @@ export default class DB {
             throw e;
         }
 
-        for (const participant of match.participants) {
+        for (const ban of match.bans) {
             promises.push(
                 await DB.db.run(`
                     INSERT INTO champions (
-                        championId, patch, total, wins, timePlayed, firstBloodParticipate, visionScore,
+                        championId, patch, total, wins, bans, timePlayed, firstBloodParticipate, visionScore,
                         magicDamageDealtToChampions, physicalDamageDealtToChampions, trueDamageDealtToChampions,
                         totalDamageDealtToChampions, totalDamageTaken, damageDealtToObjectives, damageDealtToTurrets,
                         kills, deaths, assists, wardsPlaced, neutralMinionsKilled, objectivesStolen, goldEarned
                     ) VALUES (
-                        :championId, :patch, :total, :wins, :timePlayed, :firstBloodParticipate, :visionScore,
+                        :championId, :patch, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+                    )
+                    ON CONFLICT (championId, patch) DO UPDATE SET
+                        bans=bans+1
+                    WHERE championId = :championId AND patch = :patch
+                `, {
+                    ':championId': ban,
+                    ':patch': match.patch,
+                })
+            );
+        }
+
+        for (const participant of match.participants) {
+            promises.push(
+                await DB.db.run(`
+                    INSERT INTO champions (
+                        championId, patch, total, wins, bans, timePlayed, firstBloodParticipate, visionScore,
+                        magicDamageDealtToChampions, physicalDamageDealtToChampions, trueDamageDealtToChampions,
+                        totalDamageDealtToChampions, totalDamageTaken, damageDealtToObjectives, damageDealtToTurrets,
+                        kills, deaths, assists, wardsPlaced, neutralMinionsKilled, objectivesStolen, goldEarned
+                    ) VALUES (
+                        :championId, :patch, :total, :wins, 0, :timePlayed, :firstBloodParticipate, :visionScore,
                         :magicDamageDealtToChampions, :physicalDamageDealtToChampions, :trueDamageDealtToChampions,
                         :totalDamageDealtToChampions, :totalDamageTaken, :damageDealtToObjectives, :damageDealtToTurrets,
                         :kills, :deaths, :assists, :wardsPlaced, :neutralMinionsKilled, :objectivesStolen, :goldEarned
@@ -205,13 +231,26 @@ export default class DB {
     public static async getChampionStats(patch: string): Promise<ChampionStats> {
         await DB.init();
         return Cache.get(`champion-stats-${patch}`, 1000 * 60 * 15, async () => {
+            const matchCount = (await DB.db.get(`
+                SELECT COUNT(*) AS count FROM matches
+                WHERE patch = ?
+            `, [patch])).count;
             const rows = await DB.db.all(`
                 SELECT * FROM champions
                 WHERE patch = ?
             `, [patch]);
             const result: ChampionStats = {}
             for (const row of rows) {
-                result[row.championId] = row;
+                const winRate = row.wins / row.total;
+                const pickRate = row.total / matchCount;
+                const banRate = row.bans / matchCount;
+                result[row.championId] = {
+                    ...row,
+                    winRate,
+                    pickRate,
+                    banRate,
+                    influence: 10000 * (winRate - 0.5) * pickRate / (1 - banRate),
+                };
             }
             return result;
         });

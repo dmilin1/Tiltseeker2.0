@@ -23,7 +23,7 @@ export default class DataCollector {
             new DataCollector('KR'),
             new DataCollector('EUW1'),
         ];
-        // await Promise.all(dataCollectors.map(dc => dc.run()));
+        await Promise.all(dataCollectors.map(dc => dc.run()));
     }
 
     private async run() {
@@ -69,12 +69,21 @@ export default class DataCollector {
 
     private async cleanupMatchIds() {
         const users = getRandomSample(this.seedUsers, 10);
-        const newMatches = (await Promise.all(users.map((puuid) =>
-            Riot.getMatchHistory(this.region, puuid, 10)
-        )))
+        const newMatches = (await Promise.all(users.map(async (puuid) => {
+            try {
+                const matchIds = await Riot.getMatchHistory(this.region, puuid, 10);
+                return matchIds.filter(matchId => matchId?.startsWith(this.region));
+            } catch {
+                return;
+            }
+        })))
             .flat()
-            .filter(matchId => matchId?.startsWith(this.region));
-        this.matchIds.push(...newMatches);
+            .filter(matchId => matchId) as MatchId[];
+        for (const matchId of newMatches) {
+            if (!this.matchIds.includes(matchId)) {
+                this.matchIds.push(matchId);
+            }
+        }
         if (this.matchIds.length > MATCH_ID_LIMIT) {
             this.matchIds = this.matchIds.slice(-MATCH_ID_LIMIT);
         }
@@ -94,7 +103,11 @@ export default class DataCollector {
                     this.delayNextStep += 5_000;
                 }
                 if (added) {
-                    this.seedUsers.push(...match.participants.map(p => p.puuid));
+                    for (const participant of match.participants) {
+                        if (!this.seedUsers.includes(participant.puuid)) {
+                            this.seedUsers.push(participant.puuid);
+                        }
+                    }
                 }
             } catch (e: any) {
                 console.error(e);

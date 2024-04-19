@@ -17,6 +17,9 @@ export default async function setup() {
     await db.run(`
         CREATE UNIQUE INDEX IF NOT EXISTS matchIdIndex ON matches (matchId);
     `);
+    await db.run(`
+        CREATE INDEX IF NOT EXISTS patchIndex ON matches (patch);
+    `);
 
     await db.run(`
         CREATE TABLE IF NOT EXISTS champions (
@@ -24,6 +27,7 @@ export default async function setup() {
             patch STRING NOT NULL,
             total INTEGER NOT NULL,
             wins INTEGER NOT NULL,
+            bans INTEGER NOT NULL,
             timePlayed INTEGER NOT NULL,
             firstBloodParticipate INTEGER NOT NULL,
             visionScore INTEGER NOT NULL,

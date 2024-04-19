@@ -14,6 +14,7 @@ export type Match = {
     id: MatchId;
     patch: string;
     duration: number;
+    bans: number[];
     participants: {
         win: boolean;
         puuid: PUUID;
@@ -55,7 +56,6 @@ export const RegionToRouting: RegionToRoutingType = {
     'TR1': 'EUROPE',
     'RU': 'EUROPE',
 }
-
 
 export default class Riot {
     public static async req(
@@ -115,6 +115,7 @@ export default class Riot {
             id: data.metadata.matchId,
             patch: data.info.gameVersion.split('.').slice(0, 2).join('.'),
             duration: data.info.gameDuration,
+            bans: data.info.teams[0].bans.concat(data.info.teams[1].bans).map((ban: any) => ban.championId),
             participants: data.info.participants.map((participant: any) => ({
                 win: participant.win,
                 puuid: participant.puuid,
