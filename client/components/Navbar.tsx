@@ -58,7 +58,7 @@ function NavbarDesktop() {
                 text={'Best Bans'}
             />
             <NavbarButton
-                linkProps={{ to: "/championstats" }}
+                linkProps={{ to: "/tools/championstats" }}
                 icon={<IoIosStats />}
                 text={'Champion Stats'}
             />
@@ -116,7 +116,7 @@ function NavbarMobile() {
                         text={'Best Bans'}
                     />
                     <NavbarButtonMobile
-                        linkProps={{ to: "/championstats" }}
+                        linkProps={{ to: "/tools/championstats" }}
                         icon={<IoIosStats />}
                         text={'Champion Stats'}
                     />

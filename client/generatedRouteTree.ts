@@ -18,6 +18,7 @@ import { Route as rootRoute } from './routes/__root'
 
 const AboutLazyImport = createFileRoute('/about')()
 const IndexLazyImport = createFileRoute('/')()
+const ToolsChampionstatsLazyImport = createFileRoute('/tools/championstats')()
 const ToolsBestbansLazyImport = createFileRoute('/tools/bestbans')()
 
 // Create/Update Routes
@@ -31,6 +32,13 @@ const IndexLazyRoute = IndexLazyImport.update({
   path: '/',
   getParentRoute: () => rootRoute,
 } as any).lazy(() => import('./routes/index.lazy').then((d) => d.Route))
+
+const ToolsChampionstatsLazyRoute = ToolsChampionstatsLazyImport.update({
+  path: '/tools/championstats',
+  getParentRoute: () => rootRoute,
+} as any).lazy(() =>
+  import('./routes/tools/championstats.lazy').then((d) => d.Route),
+)
 
 const ToolsBestbansLazyRoute = ToolsBestbansLazyImport.update({
   path: '/tools/bestbans',
@@ -55,6 +63,10 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ToolsBestbansLazyImport
       parentRoute: typeof rootRoute
     }
+    '/tools/championstats': {
+      preLoaderRoute: typeof ToolsChampionstatsLazyImport
+      parentRoute: typeof rootRoute
+    }
   }
 }
 
@@ -64,6 +76,7 @@ export const routeTree = rootRoute.addChildren([
   IndexLazyRoute,
   AboutLazyRoute,
   ToolsBestbansLazyRoute,
+  ToolsChampionstatsLazyRoute,
 ])
 
 /* prettier-ignore-end */

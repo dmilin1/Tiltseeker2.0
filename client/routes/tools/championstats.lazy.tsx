@@ -6,8 +6,8 @@ import Table from "../../components/Table";
 import { useMediaQuery } from "react-responsive";
 
 
-export const Route = createLazyFileRoute('/tools/bestbans')({
-    component: BestBans,
+export const Route = createLazyFileRoute('/tools/championstats')({
+    component: ChampStats,
 })
 
 type ChampionNames = {
@@ -27,7 +27,7 @@ type TableRow = {
     banRate: number;
 };
 
-function BestBans() {
+function ChampStats() {
     const [currentPatch, setCurrentPatch] = useState<string>();
     const [championStats, setChampionStats] = useState<ChampionStats>();
     const [championNames, setChampionNames] = useState<ChampionNames>();
@@ -81,7 +81,7 @@ function BestBans() {
 
     return (
         <div className="p-2 grow items-stretch">
-            <div className='flex-col items-stretch grow h-fit'>
+            <div className='flex-col items-stretch grow'>
                 <div className="flex-col text-text px-6 py-4 rounded-lg bg-tint grow lg:w-3/4 2xl:w-1/2 lg:self-center my-8">
                     <div></div>
                     <h1 className='text-2xl text-center mb-4'>Best Bans</h1>
