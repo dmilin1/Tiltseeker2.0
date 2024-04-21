@@ -1,21 +1,15 @@
 import { createLazyFileRoute } from "@tanstack/react-router"
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import BaseURL from "../../utils/BaseURL";
 import { ChampionStats } from "../../../server/db/DB";
 import Table from "../../components/Table";
 import { useMediaQuery } from "react-responsive";
+import { ChampDataContext, ChampionNames } from "../../contexts/ChampData";
 
 
 export const Route = createLazyFileRoute('/tools/bestbans')({
     component: BestBans,
 })
-
-type ChampionNames = {
-    [championId: string]: {
-        name: string;
-        id: string;
-    }
-}
 
 type TableRow = {
     key: string;
@@ -28,9 +22,7 @@ type TableRow = {
 };
 
 function BestBans() {
-    const [currentPatch, setCurrentPatch] = useState<string>();
-    const [championStats, setChampionStats] = useState<ChampionStats>();
-    const [championNames, setChampionNames] = useState<ChampionNames>();
+    const { patch, championNames, championStats } = useContext(ChampDataContext);
 
     const isMobile = useMediaQuery({ maxWidth: 550 });
 
@@ -55,30 +47,6 @@ function BestBans() {
         key: 'banRate',
     }] as { text: string, key: keyof TableRow }[];
 
-    const loadChampionStats = async () => {
-        const res = await fetch(`${BaseURL}/championStats`);
-        const data = await res.json();
-        setChampionStats(data);
-    }
-
-    const loadChampionNames = async () => {
-        const res = await fetch(`https://ddragon.leagueoflegends.com/api/versions.json`);
-        const latestPatch = (await res.json())[0];
-        const res2 = await fetch(`https://ddragon.leagueoflegends.com/cdn/${latestPatch}/data/en_US/champion.json`);
-        const data = (await res2.json()).data;
-        const championInfo = Object.values(data).reduce((acc: ChampionNames, champ: any) => {
-            acc[champ.key] = { name: champ.name, id: champ.id};
-            return acc;
-        }, {});
-        setCurrentPatch(latestPatch);
-        setChampionNames(championInfo);
-    }
-
-    useEffect(() => {
-        loadChampionStats();
-        loadChampionNames();
-    }, []);
-
     return (
         <div className="p-2 grow items-stretch">
             <div className='flex-col items-stretch grow h-fit'>
@@ -93,44 +61,48 @@ function BestBans() {
                         Ideal ban strategy is to ban champions with a high winrate who also have a high playrate. In this list, "Influence" represents the average losses per 10,000 games that you can expect due to that champion being on the other team. By banning that champion, you are in effect negating those losses.
                     </p>
                 </div>
-                {championStats && championNames &&
-                    <div className="text-text grid grid-cols-2 xs:grid-cols-3 md:grid-cols-4 grow lg:w-3/4 2xl:w-1/2 lg:self-center mb-2">
-                        {Object.keys(championStats || {}).sort((a, b) => championStats[b].influence - championStats[a].influence).slice(0, isMobile ? 6 : 12).map((champId, i) => (
-                            <div className="flex flex-col justify-center items-center mb-6">
-                                <img className="mb-2 max-w-44" src={`https://ddragon.leagueoflegends.com/cdn/img/champion/loading/${championNames[champId].id}_0.jpg`}></img>
-                                <h2>#{i+1}: {championNames[champId].name}</h2>
-                                <p>Influence: {Number((championStats[champId].influence)?.toFixed(0))}</p>
-                                <p>Winrate: {Number((championStats[champId].winRate * 100)?.toFixed(2))}%</p>
-                                <p>Pickrate: {Number((championStats[champId].pickRate * 100)?.toFixed(2))}%</p>
-                                <p>Banrate: {Number((championStats[champId].banRate * 100)?.toFixed(2))}%</p>
-                            </div>
-                        ))}
-                    </div>
-                }
-                {championStats && championNames &&
-                    <Table
-                        defaultSort={{ key: 'influence', desc: true }}
-                        columns={columns}
-                        data={Object.keys(championStats || {}).map(champId => ({
-                            key: champId,
-                            id: championNames[champId]?.id,
-                            name: championNames[champId]?.name,
-                            influence: Number((championStats[champId].influence)?.toFixed(0)),
-                            winRate: Number((championStats[champId].winRate * 100)?.toFixed(2)),
-                            pickRate: Number((championStats[champId].pickRate * 100)?.toFixed(2)),
-                            banRate: Number((championStats[champId].banRate * 100)?.toFixed(2)),
-                        })) as TableRow[]}
-                        renderRow={champ =>
-                            <tr key={champ.key} className="mb-4">
-                                <td><img src={`https://ddragon.leagueoflegends.com/cdn/${currentPatch}/img/champion/${champ.id}.png`} alt={champ.name} className='w-8 h-8 mr-2'/></td>
-                                {!isMobile && <td>{champ.name}</td>}
-                                <td>{champ.influence}</td>
-                                <td>{champ.winRate}%</td>
-                                <td>{champ.pickRate}%</td>
-                                <td>{champ.banRate}%</td>
-                            </tr>
-                        }
-                    />
+                {championStats && championNames && patch &&
+                    <>
+                        <div className="text-text grid grid-cols-2 xs:grid-cols-3 md:grid-cols-4 grow lg:w-3/4 2xl:w-1/2 lg:self-center mb-2">
+                            {Object.keys(championStats || {}).sort((a, b) => championStats[b].influence - championStats[a].influence).slice(0, isMobile ? 6 : 12).map((champId, i) => (
+                                <div key={champId} className="flex flex-col justify-center items-center mb-6">
+                                    <img className="mb-2 max-w-44" src={`https://ddragon.leagueoflegends.com/cdn/img/champion/loading/${championNames[champId].id}_0.jpg`}></img>
+                                    <h2>#{i+1}: {championNames[champId].name}</h2>
+                                    <p>Influence: {Number((championStats[champId].influence)?.toFixed(0))}</p>
+                                    <p>Winrate: {Number((championStats[champId].winRate * 100)?.toFixed(2))}%</p>
+                                    <p>Pickrate: {Number((championStats[champId].pickRate * 100)?.toFixed(2))}%</p>
+                                    <p>Banrate: {Number((championStats[champId].banRate * 100)?.toFixed(2))}%</p>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="lg:w-3/4 2xl:w-1/2 lg:self-center">
+                            <Table
+                                defaultSort={{ key: 'influence', desc: true }}
+                                columns={columns}
+                                data={Object.keys(championStats || {}).map(champId => ({
+                                    key: champId,
+                                    id: championNames[champId]?.id,
+                                    name: championNames[champId]?.name,
+                                    influence: Number((championStats[champId].influence)?.toFixed(0)),
+                                    winRate: Number((championStats[champId].winRate * 100)?.toFixed(2)),
+                                    pickRate: Number((championStats[champId].pickRate * 100)?.toFixed(2)),
+                                    banRate: Number((championStats[champId].banRate * 100)?.toFixed(2)),
+                                })) as TableRow[]}
+                                renderRow={champ =>
+                                    <tr key={champ.key}>
+                                        <td className="sticky left-0">
+                                            <img src={`https://ddragon.leagueoflegends.com/cdn/${patch}/img/champion/${champ.id}.png`} alt={champ.name} className='w-8 h-8 mr-2'/>
+                                        </td>
+                                        {!isMobile && <td>{champ.name}</td>}
+                                        <td>{champ.influence}</td>
+                                        <td>{champ.winRate}%</td>
+                                        <td>{champ.pickRate}%</td>
+                                        <td>{champ.banRate}%</td>
+                                    </tr>
+                                }
+                            />
+                        </div>
+                    </>
                 }
             </div>
         </div>

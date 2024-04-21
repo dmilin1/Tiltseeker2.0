@@ -18,6 +18,9 @@ import { Route as rootRoute } from './routes/__root'
 
 const AboutLazyImport = createFileRoute('/about')()
 const IndexLazyImport = createFileRoute('/')()
+const ToolsCompositionanalyzerLazyImport = createFileRoute(
+  '/tools/compositionanalyzer',
+)()
 const ToolsChampionstatsLazyImport = createFileRoute('/tools/championstats')()
 const ToolsBestbansLazyImport = createFileRoute('/tools/bestbans')()
 
@@ -32,6 +35,14 @@ const IndexLazyRoute = IndexLazyImport.update({
   path: '/',
   getParentRoute: () => rootRoute,
 } as any).lazy(() => import('./routes/index.lazy').then((d) => d.Route))
+
+const ToolsCompositionanalyzerLazyRoute =
+  ToolsCompositionanalyzerLazyImport.update({
+    path: '/tools/compositionanalyzer',
+    getParentRoute: () => rootRoute,
+  } as any).lazy(() =>
+    import('./routes/tools/compositionanalyzer.lazy').then((d) => d.Route),
+  )
 
 const ToolsChampionstatsLazyRoute = ToolsChampionstatsLazyImport.update({
   path: '/tools/championstats',
@@ -67,6 +78,10 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ToolsChampionstatsLazyImport
       parentRoute: typeof rootRoute
     }
+    '/tools/compositionanalyzer': {
+      preLoaderRoute: typeof ToolsCompositionanalyzerLazyImport
+      parentRoute: typeof rootRoute
+    }
   }
 }
 
@@ -77,6 +92,7 @@ export const routeTree = rootRoute.addChildren([
   AboutLazyRoute,
   ToolsBestbansLazyRoute,
   ToolsChampionstatsLazyRoute,
+  ToolsCompositionanalyzerLazyRoute,
 ])
 
 /* prettier-ignore-end */

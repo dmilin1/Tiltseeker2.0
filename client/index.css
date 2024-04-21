@@ -14,10 +14,11 @@
 }
 
 #app {
-  min-height: 100vh;
+  height: 100vh;
   flex: 1;
   flex-direction: column;
   align-items: stretch;
+  max-width: 100vw;
 }
 
 body {
@@ -26,8 +27,23 @@ body {
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
+  overflow-x: hidden;
+  background-color: #242424;
 }
 
 a,div,span:not(.TanStackRouterDevtools *) {
   display: flex;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #242424;
+}
+::-webkit-scrollbar-thumb {
+  background-color: #737373;
+  border-radius: 10px;
+  border: 1px solid #242424;
 }

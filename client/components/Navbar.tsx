@@ -63,7 +63,7 @@ function NavbarDesktop() {
                 text={'Champion Stats'}
             />
             <NavbarButton
-                linkProps={{ to: "/compositionanalyzer" }}
+                linkProps={{ to: "/tools/compositionanalyzer" }}
                 icon={<LuBrainCircuit />}
                 text={'Composition Analyzer'}
             />
@@ -107,7 +107,7 @@ function NavbarMobile() {
             </div>
             {isMenuOpen && (
                 <div
-                    className="absolute border-t-2 border-bg top-16 right-0 bg-tint w-full h-full flex-col p-6"
+                    className="absolute border-t-2 border-bg top-16 right-0 bg-tint w-full h-full flex-col p-6 z-[1000]"
                     onClick={() => setIsMenuOpen(false)}
                 >
                     <NavbarButtonMobile
@@ -121,7 +121,7 @@ function NavbarMobile() {
                         text={'Champion Stats'}
                     />
                     <NavbarButtonMobile
-                        linkProps={{ to: "/compositionanalyzer" }}
+                        linkProps={{ to: "/tools/compositionanalyzer" }}
                         icon={<LuBrainCircuit />}
                         text={'Composition Analyzer'}
                     />
@@ -149,7 +149,7 @@ function NavbarMobile() {
 
 export default function Navbar() {
     return (
-        <div className="bg-tint h-16 px-6">
+        <div className="bg-tint min-h-16 px-6">
             <MediaQuery minWidth={970}>
                 <NavbarDesktop />
             </MediaQuery>

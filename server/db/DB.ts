@@ -241,6 +241,7 @@ export default class DB {
             `, [patch]);
             const result: ChampionStats = {}
             for (const row of rows) {
+                if (row.championId < 0) continue;
                 const winRate = row.wins / row.total;
                 const pickRate = row.total / matchCount;
                 const banRate = row.bans / matchCount;

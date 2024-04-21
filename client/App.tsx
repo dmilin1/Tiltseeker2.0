@@ -5,6 +5,7 @@ import './index.css'
 
 // Import the generated route tree
 import { routeTree } from './generatedRouteTree.ts';
+import { ChampDataProvider } from './contexts/ChampData.tsx';
 
 // Create a new router instance
 const router = createRouter({ routeTree })
@@ -21,7 +22,9 @@ if (!rootElement.innerHTML) {
   const root = ReactDOM.createRoot(rootElement)
   root.render(
     <StrictMode>
-      <RouterProvider router={router} />
+      <ChampDataProvider>
+        <RouterProvider router={router} />
+      </ChampDataProvider>
     </StrictMode>,
   )
 }
