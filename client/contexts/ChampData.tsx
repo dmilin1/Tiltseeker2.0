@@ -1,5 +1,5 @@
 import { createContext, useEffect, useState } from 'react';
-import { ChampionStats } from "../../server/db/DB";
+import { ChampionStats, Matchups } from "../../server/db/DB";
 import BaseURL from '../utils/BaseURL';
 
 export type ChampionNames = {
@@ -13,11 +13,13 @@ type ChampDataProviderProps = {
     patch?: string;
     championStats: ChampionStats;
     championNames: ChampionNames;
+    matchups: Matchups;
 }
 
 const initialChampData: ChampDataProviderProps = {
     championStats: {},
     championNames: {},
+    matchups: {},
 }
 
 export const ChampDataContext = createContext(initialChampData);
@@ -26,6 +28,7 @@ export const ChampDataProvider = ({ children }: { children: React.ReactNode }) =
     const [patch, setPatch] = useState(initialChampData.patch);
     const [championStats, setChampionStats] = useState(initialChampData.championStats);
     const [championNames, setChampionNames] = useState(initialChampData.championNames);
+    const [matchups, setMatchups] = useState(initialChampData.matchups);
 
     const loadChampionStats = async () => {
         const res = await fetch(`${BaseURL}/championStats`);
@@ -46,8 +49,15 @@ export const ChampDataProvider = ({ children }: { children: React.ReactNode }) =
         setChampionNames(championInfo);
     }
 
+    const loadMatchups = async () => {
+        const res = await fetch(`${BaseURL}/matchups`);
+        const data = await res.json();
+        setMatchups(data);
+    }
+
     useEffect(() => {
         loadChampionStats();
+        loadMatchups();
         loadChampionNames();
     }, []);
 
@@ -55,7 +65,8 @@ export const ChampDataProvider = ({ children }: { children: React.ReactNode }) =
         <ChampDataContext.Provider value={{
             patch,
             championStats,
-            championNames
+            championNames,
+            matchups,
         }}>
             {children}
         </ChampDataContext.Provider>

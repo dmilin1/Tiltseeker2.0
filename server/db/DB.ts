@@ -7,14 +7,14 @@ import { Match } from '../riot/Riot';
 import { patchToNum } from '../utils/Calculations';
 import Cache from '../utils/Cache';
 
-type Matchups = {
+export type Matchups = {
     [championIdA: number]: {
         [championIdB: number]: {
-            teammates: {
+            teammates?: {
                 wins: number;
                 total: number;
             },
-            opponents: {
+            opponents?: {
                 wins: number;
                 total: number;
             }
@@ -213,15 +213,12 @@ export default class DB {
                 if (!result[matchup.championIdA]) {
                     result[matchup.championIdA] = {};
                 }
-                result[matchup.championIdA][matchup.championIdB] = {
-                    teammates: {
-                        wins: matchup.opponents ? 0 : matchup.wins,
-                        total: matchup.total,
-                    },
-                    opponents: {
-                        wins: matchup.opponents ? matchup.wins : 0,
-                        total: matchup.total,
-                    }
+                if (!result[matchup.championIdA][matchup.championIdB]) {
+                    result[matchup.championIdA][matchup.championIdB] = {};
+                }
+                result[matchup.championIdA][matchup.championIdB][matchup.opponents ? 'opponents' : 'teammates'] = {
+                    wins: matchup.wins,
+                    total: matchup.total,
                 };
             }
             return result;
