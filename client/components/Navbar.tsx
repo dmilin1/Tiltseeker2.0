@@ -68,7 +68,7 @@ function NavbarDesktop() {
                 text={'Composition Analyzer'}
             />
             <NavbarButton
-                linkProps={{ to: "/desktopapp" }}
+                linkProps={{ to: "/tools/desktopapp" }}
                 icon={<FaDesktop />}
                 text={'Desktop App'}
             />
@@ -126,7 +126,7 @@ function NavbarMobile() {
                         text={'Composition Analyzer'}
                     />
                     <NavbarButtonMobile
-                        linkProps={{ to: "/desktopapp" }}
+                        linkProps={{ to: "/tools/desktopapp" }}
                         icon={<FaDesktop />}
                         text={'Desktop App'}
                     />

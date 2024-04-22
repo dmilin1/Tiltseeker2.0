@@ -8,6 +8,7 @@ export default {
         tint: '#363642',
         buttonText: '#f1f1f1',
         text: '#ffffff',
+        subtleText: '#d3d3d3',
       }
     },
   },
