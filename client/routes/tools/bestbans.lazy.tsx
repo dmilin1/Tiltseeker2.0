@@ -5,6 +5,7 @@ import { ChampionStats } from "../../../server/db/DB";
 import Table from "../../components/Table";
 import { useMediaQuery } from "react-responsive";
 import { ChampDataContext, ChampionNames } from "../../contexts/ChampData";
+import { ChampionId } from "../../../server/riot/Riot";
 
 
 export const Route = createLazyFileRoute('/tools/bestbans')({
@@ -64,7 +65,7 @@ function BestBans() {
                 {championStats && championNames && patch &&
                     <>
                         <div className="text-text grid grid-cols-2 xs:grid-cols-3 md:grid-cols-4 grow lg:w-3/4 2xl:w-1/2 lg:self-center mb-2">
-                            {Object.keys(championStats || {}).sort((a, b) => championStats[b].influence - championStats[a].influence).slice(0, isMobile ? 6 : 12).map((champId, i) => (
+                            {(Object.keys(championStats || {}) as ChampionId[]).sort((a, b) => championStats[b].influence - championStats[a].influence).slice(0, isMobile ? 6 : 12).map((champId, i) => (
                                 <div key={champId} className="flex flex-col justify-center items-center mb-6">
                                     <img className="mb-2 max-w-44" src={`https://ddragon.leagueoflegends.com/cdn/img/champion/loading/${championNames[champId].id}_0.jpg`}></img>
                                     <h2>#{i+1}: {championNames[champId].name}</h2>
@@ -79,7 +80,7 @@ function BestBans() {
                             <Table
                                 defaultSort={{ key: 'influence', desc: true }}
                                 columns={columns}
-                                data={Object.keys(championStats || {}).map(champId => ({
+                                data={(Object.keys(championStats || {}) as ChampionId[]).map(champId => ({
                                     key: champId,
                                     id: championNames[champId]?.id,
                                     name: championNames[champId]?.name,

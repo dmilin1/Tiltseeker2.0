@@ -2,6 +2,8 @@ import express from "express";
 import { Request, Response } from 'express';
 import asyncHandler from "express-async-handler";
 import DB from "../db/DB";
+import { Region, SummonerName } from "../riot/Riot";
+import Tiltseek from "../riot/Tiltseek";
 
 export default () => {
     const app = express();
@@ -28,6 +30,13 @@ export default () => {
 
     app.get('/currentPatch', asyncHandler(async (_: Request, res: Response) => {
         res.send({ patch: await DB.getNewestPatch() });
+    }));
+
+    app.get('/tiltseek/:region/:summonerName', asyncHandler(async (req: Request, res: Response) => {
+        res.send(await Tiltseek.tiltseek(
+            req.params.region.toUpperCase() as Region,
+            req.params.summonerName as SummonerName
+        ));
     }));
 
     app.listen(3000, () => {

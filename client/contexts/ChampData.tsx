@@ -1,9 +1,10 @@
 import { createContext, useEffect, useState } from 'react';
 import { ChampionStats, Matchups } from "../../server/db/DB";
 import BaseURL from '../utils/BaseURL';
+import { ChampionId } from '../../server/riot/Riot';
 
 export type ChampionNames = {
-    [championId: string]: {
+    [championId: ChampionId]: {
         name: string;
         id: string;
     }

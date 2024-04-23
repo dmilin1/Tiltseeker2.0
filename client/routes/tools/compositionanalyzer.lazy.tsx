@@ -6,6 +6,7 @@ import { ChampionStats, Matchups } from "../../../server/db/DB";
 import { BiQuestionMark } from "react-icons/bi";
 import { FaCheck } from "react-icons/fa";
 import { FaX, FaXmark } from "react-icons/fa6";
+import { ChampionId } from "../../../server/riot/Riot";
 
 
 export const Route = createLazyFileRoute('/tools/compositionanalyzer')({
@@ -14,7 +15,7 @@ export const Route = createLazyFileRoute('/tools/compositionanalyzer')({
 
 type ChampInputProps = {
     index: number;
-    onChampChange: (champId: null | keyof ChampionStats, index: number) => void;
+    onChampChange: (champId: null | ChampionId, index: number) => void;
 }
 
 type WinRateProbability = {
@@ -37,11 +38,11 @@ function ChampInput({ index, onChampChange }: ChampInputProps) {
 
     const optionsList = Object.entries(championNames)
         .filter(([_, champ]) => champ.name.toLowerCase().includes(champText.toLowerCase()))
-        .sort((a, b) => a[1].name.localeCompare(b[1].name));
+        .sort((a, b) => a[1].name.localeCompare(b[1].name)) as [ChampionId, { name: string, id: string }][];
 
     const setChamp = (text: string) => {
         setChampText(text);
-        const champId = Object.entries(championNames).find(([_, data]) => data.name.toLowerCase() === text.toLowerCase())?.[0];
+        const champId = Object.entries(championNames).find(([_, data]) => data.name.toLowerCase() === text.toLowerCase())?.[0] as ChampionId;
         onChampChange(champId ?? null, index);
     }
 
@@ -117,7 +118,7 @@ function ChampInput({ index, onChampChange }: ChampInputProps) {
 function CompositionAnalyzer() {
     const { championNames, championStats, matchups } = useContext(ChampDataContext);
 
-    const [champs, setChamps] = useState<(keyof ChampionStats|null)[]>(new Array(10).fill(null));
+    const [champs, setChamps] = useState<(ChampionId|null)[]>(new Array(10).fill(null));
     const [compensateForChampionWinrate, setCompensateForChampionWinrate] = useState(false);
 
     const calculateProbability: () => WinRateProbability & { excludedCount: number, comparisonsMade: number } = () => {
@@ -139,7 +140,7 @@ function CompositionAnalyzer() {
 
         for (let i = 0; i < champs.length; i++) {
             for (let j = i; j < champs.length; j++) {
-                const [champA, champB] = [champs[i] as keyof Matchups, champs[j] as keyof Matchups];
+                const [champA, champB] = [champs[i] as ChampionId, champs[j] as ChampionId];
                 const sameTeam = i < 5 === j < 5;
                 const invertProbability = i >= 5;
                 if (!champA || !champB) continue;

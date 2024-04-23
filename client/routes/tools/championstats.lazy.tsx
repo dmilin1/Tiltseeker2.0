@@ -5,6 +5,7 @@ import { ChampionStats } from "../../../server/db/DB";
 import Table from "../../components/Table";
 import { useMediaQuery } from "react-responsive";
 import { ChampDataContext } from "../../contexts/ChampData";
+import { ChampionId } from "../../../server/riot/Riot";
 
 
 export const Route = createLazyFileRoute('/tools/championstats')({
@@ -123,7 +124,7 @@ function ChampStats() {
                         <Table
                             defaultSort={{ key: 'influence', desc: true }}
                             columns={columns}
-                            data={Object.keys(championStats || {}).map(champId => {
+                            data={(Object.keys(championStats || {}) as ChampionId[]).map(champId => {
                                 const champData = championStats[champId];
                                 const gameTime = champData.timePlayed / champData.total;
                                 return {

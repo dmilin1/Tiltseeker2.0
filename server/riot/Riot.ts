@@ -6,9 +6,11 @@ export type Region = 'NA1' | 'BR1' | 'EUN1' | 'EUW1' | 'JP1' | 'KR' | 'LA1' | 'L
 /* Makes a generic into a distinct type */
 type Distinct<T, DistinctName> = T & { __TYPE__: DistinctName };
 
+export type SummonerName = Distinct<string, 'SummonerName'>;
 export type PUUID = Distinct<string, 'PUUID'>;
 export type SummonerId = Distinct<string, 'SummonerId'>;
 export type MatchId = Distinct<string, 'MatchId'>;
+export type ChampionId = Distinct<number|string, 'MatchId'>;
 
 export type Match = {
     id: MatchId;
@@ -18,7 +20,7 @@ export type Match = {
     participants: {
         win: boolean;
         puuid: PUUID;
-        championId: number;
+        championId: ChampionId;
         teamId: number;
         firstBloodParticipate: boolean;
         visionScore: number;
@@ -37,6 +39,28 @@ export type Match = {
         objectivesStolen: number;
         goldEarned: number;
     }[];
+}
+
+export type OngoingMatch = {
+    id: MatchId;
+    participants: {
+        name: string;
+        championId: ChampionId;
+        summonerId: SummonerId;
+        puuid: PUUID;
+    }[];
+
+}
+
+export type PlayerChampionMastery = {
+    championId: ChampionId;
+    mastery: number;
+    lastPlayed?: number;
+}
+
+export type RankedStats = {
+    wins: number;
+    total: number;
 }
 
 export type RegionToRoutingType = {
@@ -89,6 +113,13 @@ export default class Riot {
         return versions[0].split('.').slice(0, 2).join('.');
     }
 
+    public static async summonerNameToPUUID(region: Region, summonerName: SummonerName): Promise<PUUID> {
+        const [gameName, tagLine] = summonerName.split('#');
+        const response = await this.req(`https://${RegionToRouting[region]}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${gameName}/${tagLine}`);
+        const data = await response.json();
+        return data.puuid as PUUID;
+    }
+
     public static async summonerIdToPUUID(region: Region, summonerId: SummonerId): Promise<PUUID> {
         const response = await this.req(`https://${region}.api.riotgames.com/lol/summoner/v4/summoners/${summonerId}`);
         const data = await response.json();
@@ -139,5 +170,53 @@ export default class Riot {
                 goldEarned: participant.goldEarned,
             }))
         };
+    }
+
+    public static async getCurrentMatch(region: Region, puuid: PUUID): Promise<OngoingMatch> {
+        const response = await this.req(`https://${region}.api.riotgames.com/lol/spectator/v5/active-games/by-summoner/${puuid}`);
+        const data = await response.json();
+        return {
+            id: data.gameId,
+            participants: data.participants.map((participant: any) => ({
+                name: participant.riotId,
+                championId: participant.championId,
+                summonerId: participant.summonerId,
+                puuid: participant.puuid,
+            }))
+        };
+    }
+
+    public static async getPlayerChampionMastery(region: Region, puuid: PUUID, championId: ChampionId): Promise<PlayerChampionMastery> {
+        const response = await this.req(`https://${region}.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-puuid/${puuid}/by-champion/${championId}`);
+        const data = await response.json();
+        if (data.championId) {
+            return {
+                championId: data.championId,
+                mastery: data.championPoints,
+                lastPlayed: data.lastPlayTime,
+            };
+        } else {
+            return {
+                championId: championId,
+                mastery: 0,
+            }
+        }
+    }
+
+    public static async getRankedStats(region: Region, summonerId: SummonerId): Promise<RankedStats> {
+        const response = await this.req(`https://${region}.api.riotgames.com/lol/league/v4/entries/by-summoner/${summonerId}`);
+        const data = await response.json();
+        const rankedData = data.find((entry: any) => entry.queueType === 'RANKED_SOLO_5x5');
+        if (rankedData) {
+            return {
+                wins: rankedData.wins,
+                total: rankedData.wins + rankedData.losses,
+            };
+        } else {
+            return {
+                wins: 0,
+                total: 0,
+            };
+        }
     }
 }

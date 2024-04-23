@@ -3,13 +3,13 @@ import sqlite3 from 'sqlite3';
 import './Setup';
 import setup from './Setup';
 import { Database, open } from 'sqlite';
-import { Match } from '../riot/Riot';
+import { ChampionId, Match } from '../riot/Riot';
 import { patchToNum } from '../utils/Calculations';
 import Cache from '../utils/Cache';
 
 export type Matchups = {
-    [championIdA: number]: {
-        [championIdB: number]: {
+    [championIdA: ChampionId]: {
+        [championIdB: ChampionId]: {
             teammates?: {
                 wins: number;
                 total: number;
@@ -23,8 +23,8 @@ export type Matchups = {
 }
 
 export type ChampionStats = {
-    [championId: number|string]: {
-        championId: number;
+    [championId: ChampionId]: {
+        championId: ChampionId;
         patch: string;
         total: number;
         wins: number;
