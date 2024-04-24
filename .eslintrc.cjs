@@ -14,5 +14,23 @@ module.exports = {
       'warn',
       { allowConstantExport: true },
     ],
+    '@typescript-eslint/no-explicit-any': 'off',
+    '@typescript-eslint/no-unused-vars': [
+      'error', // or 'error'
+      {
+        'argsIgnorePattern': '^_',
+        'varsIgnorePattern': '^_',
+        'caughtErrorsIgnorePattern': '^_'
+      }
+    ],
+    'no-constant-condition': [
+      'error',
+      { checkLoops: false },
+    ],
+    'prefer-const': [
+      "error", {
+        ignoreReadBeforeAssign: true,
+      }
+    ]
   },
 }

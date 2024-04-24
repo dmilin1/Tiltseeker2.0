@@ -11,7 +11,7 @@ export type WinRateProbability = {
 export default (champs: (ChampionId|null)[], compensateForChampionWinrate: boolean = false): WinRateProbability & { excludedCount: number, comparisonsMade: number } => {
     const { championStats, matchups } = useContext(ChampDataContext);
 
-    let probabilities: WinRateProbability[] = [];
+    const probabilities: WinRateProbability[] = [];
     let comparisonsMade = 0;
     let excludedCount = 0;
 
@@ -20,7 +20,7 @@ export default (champs: (ChampionId|null)[], compensateForChampionWinrate: boole
         const invert = champA === champBId && !sameTeam;
         const matchupData = matchups[champAId]?.[champBId]?.[sameTeam ? 'teammates' : 'opponents'];
         if (!matchupData) return;
-        let winRate = matchupData.wins / matchupData.total;
+        const winRate = matchupData.wins / matchupData.total;
         return {
             winRate: invert ? 1 - winRate : winRate,
             total: matchupData.total,

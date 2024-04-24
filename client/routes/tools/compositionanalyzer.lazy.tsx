@@ -1,5 +1,5 @@
 import { createLazyFileRoute } from "@tanstack/react-router"
-import { useContext, useEffect, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useMediaQuery } from "react-responsive";
 import { ChampDataContext } from "../../contexts/ChampData";
 import { BiQuestionMark } from "react-icons/bi";
@@ -31,15 +31,17 @@ function ChampInput({ index, onChampChange }: ChampInputProps) {
 
     const selectedChamp = Object.entries(championNames).find(([_, data]) => data.name.toLowerCase() === champText.toLowerCase())?.[1];
 
-    const optionsList = Object.entries(championNames)
+    const optionsList = useMemo(() => {
+        return Object.entries(championNames)
         .filter(([_, champ]) => champ.name.toLowerCase().includes(champText.toLowerCase()))
         .sort((a, b) => a[1].name.localeCompare(b[1].name)) as [ChampionId, { name: string, id: string }][];
+    }, [championNames, champText]);
 
-    const setChamp = (text: string) => {
+    const setChamp = useCallback((text: string) => {
         setChampText(text);
         const champId = Object.entries(championNames).find(([_, data]) => data.name.toLowerCase() === text.toLowerCase())?.[0] as ChampionId;
         onChampChange(champId ?? null, index);
-    }
+    }, [championNames, index, onChampChange]);
 
     useEffect(() => {
         const keylistenerCallback = (e: KeyboardEvent) => {
@@ -57,7 +59,7 @@ function ChampInput({ index, onChampChange }: ChampInputProps) {
         }
         window.addEventListener('keydown', keylistenerCallback);
         return () => window.removeEventListener('keydown', keylistenerCallback);
-    }, [champText, hoveredIndex, isFocused]);
+    }, [championNames, optionsList, setChamp, champText, hoveredIndex, isFocused]);
 
     return (
         <div className={"flex p-2 bg-tint rounded-t-lg" + (isFocused ? '' : ' rounded-b-lg')}>
@@ -90,7 +92,7 @@ function ChampInput({ index, onChampChange }: ChampInputProps) {
                             <div
                                 key={champ.id}
                                 className={"p-2 hover:bg-bg cursor-pointer text-white" + (!isMobile && hoveredIndex === i ? ' bg-bg' : '')}
-                                onMouseDown={(e) => {
+                                onMouseDown={() => {
                                     onChampChange(champId, index);
                                     setChampText(champ.name);
                                 }}
@@ -111,12 +113,20 @@ function ChampInput({ index, onChampChange }: ChampInputProps) {
 }
 
 function CompositionAnalyzer() {
-    const { championNames, championStats, matchups } = useContext(ChampDataContext);
+    const { championNames, championStats } = useContext(ChampDataContext);
 
     const [champs, setChamps] = useState<(ChampionId|null)[]>(new Array(10).fill(null));
     const [compensateForChampionWinrate, setCompensateForChampionWinrate] = useState(false);
 
     const probability = predictWinRate(champs, compensateForChampionWinrate);
+
+    const onChampChange = useCallback((champId: null | ChampionId, index: number) => {
+        setChamps(oldChamps => {
+            const newChamps = [...oldChamps];
+            newChamps[index] = champId;
+            return newChamps;
+        });
+    }, []);
 
     return (
         <div className="p-2 grow items-stretch pb-16">
@@ -162,11 +172,7 @@ function CompositionAnalyzer() {
                                         <ChampInput
                                             key={i}
                                             index={i + (team === 'Team 2' ? 5 : 0)}
-                                            onChampChange={(champId, index) => {
-                                                const newChamps = [...champs];
-                                                newChamps[index] = champId;
-                                                setChamps(newChamps);
-                                            }}
+                                            onChampChange={onChampChange}
                                         />
                                     ))}
                                 </div>

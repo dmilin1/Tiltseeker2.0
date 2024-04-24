@@ -120,7 +120,6 @@ export default class Tiltseek {
         let currentMatch: OngoingMatch;
         let playersPUUIDs: PUUID[];
         let playersSummonerIds: SummonerId[];
-        let playerHistories: Match[][];
         let playersPerformance: Performance[];
         let playerLosingStreaks: number[];
         let playersChampionMasteries: PlayerChampionMastery[];
@@ -143,19 +142,22 @@ export default class Tiltseek {
          * If we didn't, looking up a player would take ~20 seconds, which is unacceptable.
          */
         [
-            [playerHistories, playersPerformance, playerLosingStreaks],
+            /* eslint-disable-next-line prefer-const */
+            [playersPerformance, playerLosingStreaks],
+            /* eslint-disable-next-line prefer-const */
             playersChampionMasteries,
+            /* eslint-disable-next-line prefer-const */
             playersRankedStats,
         ] = await Promise.all([
             (async () => {
-                let histories = await this.getPlayerHistories(region, playersPUUIDs);
-                let performance = await Promise.all(histories.map((history, i) =>
+                const histories = await this.getPlayerHistories(region, playersPUUIDs);
+                const performance = await Promise.all(histories.map((history, i) =>
                     this.calculatePlayerPerformance(playersPUUIDs[i], history)
                 ));
-                let losingStreaks = histories.map((history, i) =>
+                const losingStreaks = histories.map((history, i) =>
                     this.calculateLosingStreak(playersPUUIDs[i], history)
                 );
-                return [histories, performance, losingStreaks];
+                return [performance, losingStreaks];
             })(),
             (async () => {
                 return await Promise.all(currentMatch.participants.map(participant =>

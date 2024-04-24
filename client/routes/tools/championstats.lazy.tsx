@@ -1,7 +1,5 @@
 import { createLazyFileRoute } from "@tanstack/react-router"
-import { useContext, useEffect, useState } from "react";
-import BaseURL from "../../utils/BaseURL";
-import { ChampionStats } from "../../../server/db/DB";
+import { useContext } from "react";
 import Table from "../../components/Table";
 import { useMediaQuery } from "react-responsive";
 import { ChampDataContext } from "../../contexts/ChampData";

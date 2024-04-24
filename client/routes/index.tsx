@@ -1,8 +1,8 @@
-import { createFileRoute, createLazyFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import { z } from 'zod';
 import icon from '../assets/icon.png';
 import { FaSearch } from 'react-icons/fa';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Cookies from 'js-cookie';
 
 export const Route = createFileRoute('/')({
@@ -56,7 +56,7 @@ function Index() {
   const [region, setRegion] = useState(Cookies.get('region') ?? 'NA1');
   const [name, setName] = useState(Cookies.get('name') ?? '');
 
-  const search = async () => {
+  const search = useCallback(async () => {
     navigate({
       to: `/tiltseek`,
       search: {
@@ -64,7 +64,7 @@ function Index() {
         name: encodeURIComponent(name),
       }
     });
-  }
+  }, [navigate, name, region]);
 
   useEffect(() => {
     const enterKeyCallback = (e: KeyboardEvent) => {
@@ -74,7 +74,7 @@ function Index() {
     };
     window.addEventListener('keydown', enterKeyCallback);
     return () => window.removeEventListener('keydown', enterKeyCallback);
-  }, [name, region]);
+  }, [search, name, region]);
 
   return (
     <div className="p-2 justify-center">

@@ -23,7 +23,7 @@ export default class DataCollector {
             new DataCollector('KR'),
             new DataCollector('EUW1'),
         ];
-        // await Promise.all(dataCollectors.map(dc => dc.run()));
+        await Promise.all(dataCollectors.map(dc => dc.run()));
     }
 
     private async run() {

@@ -16,7 +16,7 @@ type TableProps<T> = {
     renderRow: (item: T) => ReactNode;
 }
 
-export default function<T>({ defaultSort, columns, data, renderRow }: TableProps<T>) {
+export default function Table<T>({ defaultSort, columns, data, renderRow }: TableProps<T>) {
     const [sort, setSort] = useState<Sort<T>>(defaultSort);
 
     return (

@@ -1,7 +1,6 @@
-import { SearchSchemaInput, createFileRoute, redirect, useLoaderData } from "@tanstack/react-router"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
 import { TiltseekData } from "../../server/riot/Tiltseek";
-import profilePic from '../assets/profilePic.jpg';
 import BaseURL from "../utils/BaseURL";
 import { z } from 'zod'
 import { Team } from "../../server/riot/Riot";
