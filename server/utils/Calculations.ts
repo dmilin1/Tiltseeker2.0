@@ -6,7 +6,7 @@ export function patchToNum(patch: string): number {
 }
 
 export function getRandomSample<T>(arr: Array<T>, size: number): T[] {
-    const sample = [];
+    const sample: Array<T> = [];
     while (sample.length < size && arr.length > 0) {
         const index = Math.floor(Math.random() * arr.length);
         sample.push(arr[index]);

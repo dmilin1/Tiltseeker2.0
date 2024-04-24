@@ -1,6 +1,6 @@
-import DB from "../db/DB";
-import Riot, { MatchId, PUUID, Region } from "../riot/Riot";
-import { getRandomSample, patchToNum } from "../utils/Calculations";
+import DB from "../db/DB.js";
+import Riot, { MatchId, PUUID, Region } from "../riot/Riot.js";
+import { getRandomSample, patchToNum } from "../utils/Calculations.js";
 
 const MATCH_ID_LIMIT = 500;
 const SEED_USER_LIMIT = 1_000;

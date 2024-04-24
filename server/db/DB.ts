@@ -1,11 +1,10 @@
-import sqlite3 from 'sqlite3';
+import sqlite3, { RunResult } from 'sqlite3';
 
-import './Setup';
-import setup from './Setup';
-import { Database, open } from 'sqlite';
-import { ChampionId, Match } from '../riot/Riot';
-import { patchToNum } from '../utils/Calculations';
-import Cache from '../utils/Cache';
+import setup from './Setup.js';
+import { Database, ISqlite, open } from 'sqlite';
+import { ChampionId, Match } from '../riot/Riot.js';
+import { patchToNum } from '../utils/Calculations.js';
+import Cache from '../utils/Cache.js';
 
 export type Matchups = {
     [championIdA: ChampionId]: {
@@ -53,13 +52,19 @@ export type ChampionStats = {
     }
 }
 
+const DB_PATH = (
+    process.env.NODE_ENV === 'development'
+    ? './server/db/tiltseeker.db'
+    : '/data/tiltseeker.db'
+);
+
 export default class DB {
     private static db: Database<sqlite3.Database, sqlite3.Statement>;
 
     public static async init(): Promise<DB> {
         if (!DB.db) {
             DB.db = await open({
-                filename: './server/db/tiltseeker.db',
+                filename: DB_PATH,
                 driver: sqlite3.cached.Database,
             });
             await setup();
@@ -68,7 +73,7 @@ export default class DB {
     }
 
     public static async addMatch(match: Match): Promise<boolean> {
-        const promises = [];
+        const promises: Promise<ISqlite.RunResult>[] = [];
         
         try {
             await DB.db.run(`
@@ -84,7 +89,7 @@ export default class DB {
 
         for (const ban of match.bans) {
             promises.push(
-                await DB.db.run(`
+                DB.db.run(`
                     INSERT INTO champions (
                         championId, patch, total, wins, bans, timePlayed, firstBloodParticipate, visionScore,
                         magicDamageDealtToChampions, physicalDamageDealtToChampions, trueDamageDealtToChampions,
@@ -105,7 +110,7 @@ export default class DB {
 
         for (const participant of match.participants) {
             promises.push(
-                await DB.db.run(`
+                DB.db.run(`
                     INSERT INTO champions (
                         championId, patch, total, wins, bans, timePlayed, firstBloodParticipate, visionScore,
                         magicDamageDealtToChampions, physicalDamageDealtToChampions, trueDamageDealtToChampions,
@@ -167,7 +172,7 @@ export default class DB {
                 }
                 const opponents = participantA.teamId !== participantB.teamId;
                 promises.push(
-                    await DB.db.run(`
+                    DB.db.run(`
                         INSERT INTO matchup (
                             championIdA, championIdB, opponents, patch, wins, total
                         ) VALUES (

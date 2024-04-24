@@ -1,5 +1,5 @@
-import DB from "../db/DB";
-import Riot, { Region, SummonerName, PUUID, OngoingMatch, Match, MatchId, ChampionId, PlayerChampionMastery, RankedStats, SummonerId, Team } from "./Riot";
+import DB from "../db/DB.js";
+import Riot, { Region, SummonerName, PUUID, OngoingMatch, Match, MatchId, ChampionId, PlayerChampionMastery, RankedStats, SummonerId, Team } from "./Riot.js";
 
 type Performance = {
     championId: ChampionId;

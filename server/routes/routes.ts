@@ -1,9 +1,9 @@
 import express from "express";
 import { Request, Response } from 'express';
 import asyncHandler from "express-async-handler";
-import DB from "../db/DB";
-import { Region, SummonerName, RegionToRouting } from "../riot/Riot";
-import Tiltseek from "../riot/Tiltseek";
+import DB from "../db/DB.js";
+import { Region, SummonerName, RegionToRouting } from "../riot/Riot.js";
+import Tiltseek from "../riot/Tiltseek.js";
 
 export default () => {
     const app = express();
@@ -16,23 +16,19 @@ export default () => {
         });
     }
 
-    app.get('/', async (_: Request, res: Response) => {
-        res.send('woot');
-    });
-
-    app.get('/matchups', asyncHandler(async (_: Request, res: Response) => {
+    app.get('/api/matchups', asyncHandler(async (_: Request, res: Response) => {
         res.send(await DB.getMatchups(await DB.getNewestPatch()));
     }));
 
-    app.get('/championStats', asyncHandler(async (_: Request, res: Response) => {
+    app.get('/api/championStats', asyncHandler(async (_: Request, res: Response) => {
         res.send(await DB.getChampionStats(await DB.getNewestPatch()));
     }));
 
-    app.get('/currentPatch', asyncHandler(async (_: Request, res: Response) => {
+    app.get('/api/currentPatch', asyncHandler(async (_: Request, res: Response) => {
         res.send({ patch: await DB.getNewestPatch() });
     }));
 
-    app.get('/tiltseek/:region/:summonerName', asyncHandler(async (req: Request, res: Response) => {
+    app.get('/api/tiltseek/:region/:summonerName', asyncHandler(async (req: Request, res: Response) => {
         if (!(req.params.region.toUpperCase() in RegionToRouting)) {
             res.send({ error: 'Invalid region' });
             return;
@@ -47,7 +43,13 @@ export default () => {
         }
     }));
 
-    app.listen(3000, () => {
+    app.use(express.static('./dist/client'));
+
+    app.get('*', (_: Request, res: Response) => {
+        res.sendFile('index.html', { root: './dist/client' });
+    });
+
+    app.listen(process.env.port, () => {
         console.log('Application started on port 3000!');
     });
 }
