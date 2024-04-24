@@ -1,37 +1,27 @@
-FROM debian:bullseye as builder
-
 ARG NODE_VERSION=18.12.1
 
-RUN apt-get update; apt install -y curl
-RUN curl https://get.volta.sh | bash
-ENV VOLTA_HOME /root/.volta
-ENV PATH /root/.volta/bin:$PATH
-RUN volta install node@${NODE_VERSION}
 
-#######################################################################
+FROM --platform=linux/amd64 node:${NODE_VERSION}-slim as base
+LABEL fly_launch_runtime="Node.js"
 
-RUN mkdir /app
+# Node.js app lives here
 WORKDIR /app
 
-# NPM will not install any package listed in "devDependencies" when NODE_ENV is set to "production",
-# to install all modules: "npm install --production=false".
-# Ref: https://docs.npmjs.com/cli/v9/commands/npm-install#description
+# Set production environment
+ENV NODE_ENV="production"
 
-ENV NODE_ENV production
+# Install node modules
+COPY package-lock.json package.json ./
+RUN npm ci
 
+# Copy application code
 COPY ./dist ./dist
-COPY ./package.json ./package.json
 
-RUN npm install
-FROM debian:bullseye
+# Setup sqlite3 on a separate volume
+RUN mkdir -p /data
+VOLUME /data
 
-LABEL fly_launch_runtime="nodejs"
-
-COPY --from=builder /root/.volta /root/.volta
-COPY --from=builder /app /app
-
-WORKDIR /app
-ENV NODE_ENV production
-ENV PATH /root/.volta/bin:$PATH
-
+# Start the server by default, this can be overwritten at runtime
+EXPOSE 8080
+ENV DATABASE_URL="/data/tiltseeker.db"
 CMD [ "npm", "run", "start" ]

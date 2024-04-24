@@ -5,7 +5,6 @@
 
     "types": ["node"],
 
-    "composite": true,
     "skipLibCheck": true,
     "module": "NodeNext",
     "moduleResolution": "NodeNext",

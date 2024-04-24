@@ -15,7 +15,7 @@ kill_timeout = '5s'
   PORT = '8080'
 
 [mounts]
-  source = 'tiltseeker_db'
+  source = 'data'
   destination = '/data'
   initial_size = '3GB'
 

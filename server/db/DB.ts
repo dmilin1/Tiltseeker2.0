@@ -1,4 +1,4 @@
-import sqlite3, { RunResult } from 'sqlite3';
+import sqlite3 from 'sqlite3';
 
 import setup from './Setup.js';
 import { Database, ISqlite, open } from 'sqlite';
@@ -52,10 +52,10 @@ export type ChampionStats = {
     }
 }
 
-const DB_PATH = (
+export const DB_PATH = (
     process.env.NODE_ENV === 'development'
     ? './server/db/tiltseeker.db'
-    : '/data/tiltseeker.db'
+    : process.env.DATABASE_URL!
 );
 
 export default class DB {

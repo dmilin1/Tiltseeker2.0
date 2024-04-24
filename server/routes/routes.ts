@@ -49,7 +49,7 @@ export default () => {
         res.sendFile('index.html', { root: './dist/client' });
     });
 
-    app.listen(process.env.port, () => {
-        console.log('Application started on port 3000!');
+    app.listen(process.env.PORT, () => {
+        console.log(`Application started on port ${process.env.PORT}!`);
     });
 }

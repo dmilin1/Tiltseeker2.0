@@ -1,10 +1,11 @@
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
+import { DB_PATH } from './DB.js';
 
 
 export default async function setup() {
     const db = await open({
-        filename: './server/db/tiltseeker.db',
+        filename: DB_PATH,
         driver: sqlite3.cached.Database,
     });
 
