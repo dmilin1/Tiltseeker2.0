@@ -31,7 +31,7 @@ body {
   background-color: #242424;
 }
 
-a,div,span:not(.TanStackRouterDevtools *) {
+a,div,span {
   display: flex;
 }
 
