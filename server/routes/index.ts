@@ -2,7 +2,7 @@ import express from "express";
 import { Request, Response } from 'express';
 import asyncHandler from "express-async-handler";
 import DB from "../db/DB";
-import { Region, SummonerName } from "../riot/Riot";
+import { Region, SummonerName, RegionToRouting } from "../riot/Riot";
 import Tiltseek from "../riot/Tiltseek";
 
 export default () => {
@@ -33,10 +33,18 @@ export default () => {
     }));
 
     app.get('/tiltseek/:region/:summonerName', asyncHandler(async (req: Request, res: Response) => {
-        res.send(await Tiltseek.tiltseek(
-            req.params.region.toUpperCase() as Region,
-            req.params.summonerName as SummonerName
-        ));
+        if (!(req.params.region.toUpperCase() in RegionToRouting)) {
+            res.send({ error: 'Invalid region' });
+            return;
+        }
+        try {
+            res.send(await Tiltseek.tiltseek(
+                req.params.region.toUpperCase() as Region,
+                req.params.summonerName as SummonerName
+            ));
+        } catch (e: any) {
+            res.status(404).send({ error: e.message });
+        }
     }));
 
     app.listen(3000, () => {

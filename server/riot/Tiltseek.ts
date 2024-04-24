@@ -1,5 +1,5 @@
 import DB from "../db/DB";
-import Riot, { Region, SummonerName, PUUID, OngoingMatch, Match, MatchId, ChampionId, PlayerChampionMastery, RankedStats, SummonerId } from "./Riot";
+import Riot, { Region, SummonerName, PUUID, OngoingMatch, Match, MatchId, ChampionId, PlayerChampionMastery, RankedStats, SummonerId, Team } from "./Riot";
 
 type Performance = {
     championId: ChampionId;
@@ -8,15 +8,26 @@ type Performance = {
     total: number;
 }
 
-type TiltseekData = {
+export type ExpectedDamage = {
+    magic: number,
+    physical: number,
+    true: number,
+    total: number,
+}
+
+export type TiltseekData = {
+    team: Team,
+    damage: ExpectedDamage,
     players: {
+        team: Team,
         name: string,
         championId: ChampionId,
+        losingStreak: number,
         performance: Performance,
         championMastery: PlayerChampionMastery,
         rankedStats: RankedStats,
     }[];
-}
+}[];
 
 export default class Tiltseek {
 
@@ -70,6 +81,40 @@ export default class Tiltseek {
         };
     }
 
+    private static async calculateExpectedDamage(champions: ChampionId[]): Promise<ExpectedDamage> {
+        const championStats = await DB.getChampionStats(await DB.getNewestPatch());
+        return champions.reduce((acc, championId) => {
+            const champStats = championStats[championId];
+            acc.magic += champStats.magicDamageDealtToChampions / champStats.total;
+            acc.physical += champStats.physicalDamageDealtToChampions / champStats.total;
+            acc.true += champStats.trueDamageDealtToChampions / champStats.total;
+            acc.total += champStats.totalDamageDealtToChampions / champStats.total;
+            return acc;
+        }, {
+            magic: 0,
+            physical: 0,
+            true: 0,
+            total: 0,
+        });
+    }
+
+    private static calculateLosingStreak(puuid: PUUID, playerHistory: Match[]): number {
+        let streak = 0;
+        let time = Date.now() / 1_000;
+        for (let i = playerHistory.length - 1; i >= 0; i--) {
+            if (
+                playerHistory[i].createdAt > time - 60 * 60 * 6
+                && playerHistory[i].participants.find((p) => p.puuid === puuid)?.win === false
+            ) {
+                time = playerHistory[i].createdAt;
+                streak++;
+            } else {
+                break;
+            }
+        }
+        return streak;
+    }
+
     public static async tiltseek(region: Region, summonerName: SummonerName): Promise<TiltseekData> {
         let puuid: PUUID;
         let currentMatch: OngoingMatch;
@@ -77,12 +122,13 @@ export default class Tiltseek {
         let playersSummonerIds: SummonerId[];
         let playerHistories: Match[][];
         let playersPerformance: Performance[];
+        let playerLosingStreaks: number[];
         let playersChampionMasteries: PlayerChampionMastery[];
         let playersRankedStats: RankedStats[];
         try {
             puuid = await Riot.summonerNameToPUUID(region, summonerName);
         } catch (_) {
-            throw new Error('Player not found');
+            throw new Error('Player not found. Did you remember to include their player tag?');
         }
         try {
             currentMatch = await Riot.getCurrentMatch(region, puuid);
@@ -97,7 +143,7 @@ export default class Tiltseek {
          * If we didn't, looking up a player would take ~20 seconds, which is unacceptable.
          */
         [
-            [playerHistories, playersPerformance],
+            [playerHistories, playersPerformance, playerLosingStreaks],
             playersChampionMasteries,
             playersRankedStats,
         ] = await Promise.all([
@@ -106,7 +152,10 @@ export default class Tiltseek {
                 let performance = await Promise.all(histories.map((history, i) =>
                     this.calculatePlayerPerformance(playersPUUIDs[i], history)
                 ));
-                return [histories, performance];
+                let losingStreaks = histories.map((history, i) =>
+                    this.calculateLosingStreak(playersPUUIDs[i], history)
+                );
+                return [histories, performance, losingStreaks];
             })(),
             (async () => {
                 return await Promise.all(currentMatch.participants.map(participant =>
@@ -119,14 +168,26 @@ export default class Tiltseek {
                 ));
             })(),
         ]);
-        return {
-            players: currentMatch.participants.map((participant, i) => ({
-                name: participant.name,
-                championId: participant.championId,
-                performance: playersPerformance[i],
-                championMastery: playersChampionMasteries[i],
-                rankedStats: playersRankedStats[i],
-            })),
-        }
+        const players = currentMatch.participants.map((p, i) => ({
+            team: p.team,
+            name: p.name,
+            championId: p.championId,
+            losingStreak: playerLosingStreaks[i],
+            performance: playersPerformance[i],
+            championMastery: playersChampionMasteries[i],
+            rankedStats: playersRankedStats[i],
+        }));
+        const teams = [{
+            players: players.filter(p => p.team === Team.BLUE),
+            team: Team.BLUE,
+        }, {
+            players: players.filter(p => p.team === Team.RED),
+            team: Team.RED,
+        }];
+        return await Promise.all(teams.map(async ({ players, team }) => ({
+            team: team,
+            damage: await this.calculateExpectedDamage(players.map(p => p.championId)),
+            players,
+        })));
     }
 }

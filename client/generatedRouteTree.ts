@@ -13,11 +13,12 @@ import { createFileRoute } from '@tanstack/react-router'
 // Import Routes
 
 import { Route as rootRoute } from './routes/__root'
+import { Route as TiltseekImport } from './routes/tiltseek'
+import { Route as IndexImport } from './routes/index'
 
 // Create Virtual Routes
 
 const AboutLazyImport = createFileRoute('/about')()
-const IndexLazyImport = createFileRoute('/')()
 const ToolsDesktopappLazyImport = createFileRoute('/tools/desktopapp')()
 const ToolsCompositionanalyzerLazyImport = createFileRoute(
   '/tools/compositionanalyzer',
@@ -32,10 +33,15 @@ const AboutLazyRoute = AboutLazyImport.update({
   getParentRoute: () => rootRoute,
 } as any).lazy(() => import('./routes/about.lazy').then((d) => d.Route))
 
-const IndexLazyRoute = IndexLazyImport.update({
+const TiltseekRoute = TiltseekImport.update({
+  path: '/tiltseek',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const IndexRoute = IndexImport.update({
   path: '/',
   getParentRoute: () => rootRoute,
-} as any).lazy(() => import('./routes/index.lazy').then((d) => d.Route))
+} as any)
 
 const ToolsDesktopappLazyRoute = ToolsDesktopappLazyImport.update({
   path: '/tools/desktopapp',
@@ -71,7 +77,11 @@ const ToolsBestbansLazyRoute = ToolsBestbansLazyImport.update({
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
     '/': {
-      preLoaderRoute: typeof IndexLazyImport
+      preLoaderRoute: typeof IndexImport
+      parentRoute: typeof rootRoute
+    }
+    '/tiltseek': {
+      preLoaderRoute: typeof TiltseekImport
       parentRoute: typeof rootRoute
     }
     '/about': {
@@ -100,7 +110,8 @@ declare module '@tanstack/react-router' {
 // Create and export the route tree
 
 export const routeTree = rootRoute.addChildren([
-  IndexLazyRoute,
+  IndexRoute,
+  TiltseekRoute,
   AboutLazyRoute,
   ToolsBestbansLazyRoute,
   ToolsChampionstatsLazyRoute,

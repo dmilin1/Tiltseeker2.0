@@ -47,3 +47,7 @@ a,div,span:not(.TanStackRouterDevtools *) {
   border-radius: 10px;
   border: 1px solid #242424;
 }
+
+::-webkit-scrollbar-corner {
+  background: #242424;
+}

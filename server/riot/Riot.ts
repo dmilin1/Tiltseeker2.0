@@ -2,6 +2,10 @@ import { getRandomSample } from "../utils/Calculations";
 
 export type RoutingValue = 'AMERICAS' | 'ASIA' | 'EUROPE' | 'SEA';
 export type Region = 'NA1' | 'BR1' | 'EUN1' | 'EUW1' | 'JP1' | 'KR' | 'LA1' | 'LA2' | 'OC1' | 'TR1' | 'RU';
+export enum Team {
+    RED = 'Red',
+    BLUE = 'Blue',
+}
 
 /* Makes a generic into a distinct type */
 type Distinct<T, DistinctName> = T & { __TYPE__: DistinctName };
@@ -15,6 +19,7 @@ export type ChampionId = Distinct<number|string, 'MatchId'>;
 export type Match = {
     id: MatchId;
     patch: string;
+    createdAt: number;
     duration: number;
     bans: number[];
     participants: {
@@ -48,8 +53,8 @@ export type OngoingMatch = {
         championId: ChampionId;
         summonerId: SummonerId;
         puuid: PUUID;
+        team: Team;
     }[];
-
 }
 
 export type PlayerChampionMastery = {
@@ -117,6 +122,9 @@ export default class Riot {
         const [gameName, tagLine] = summonerName.split('#');
         const response = await this.req(`https://${RegionToRouting[region]}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${gameName}/${tagLine}`);
         const data = await response.json();
+        if (data?.status?.status_code === 404) {
+            throw new Error(data?.status?.message);   
+        }
         return data.puuid as PUUID;
     }
 
@@ -145,6 +153,7 @@ export default class Riot {
         return {
             id: data.metadata.matchId,
             patch: data.info.gameVersion.split('.').slice(0, 2).join('.'),
+            createdAt: data.info.gameCreation,
             duration: data.info.gameDuration,
             bans: data.info.teams[0].bans.concat(data.info.teams[1].bans).map((ban: any) => ban.championId),
             participants: data.info.participants.map((participant: any) => ({
@@ -182,6 +191,7 @@ export default class Riot {
                 championId: participant.championId,
                 summonerId: participant.summonerId,
                 puuid: participant.puuid,
+                team: participant.teamId === 100 ? Team.BLUE : Team.RED,
             }))
         };
     }
