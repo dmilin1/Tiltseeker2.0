@@ -1,4 +1,5 @@
 import sqlite3 from 'sqlite3';
+import fs from 'fs';
 
 import setup from './Setup.js';
 import { Database, ISqlite, open } from 'sqlite';
@@ -257,5 +258,27 @@ export default class DB {
             }
             return result;
         });
+    }
+
+    public static async getDBStatus(): Promise<any> {
+        const rows = await DB.db.all(`
+            SELECT
+                patch,
+                COUNT(*) as count
+            FROM matches
+            GROUP BY patch
+            ORDER BY patch DESC;
+        `);
+        const patches = rows.reduce((acc, row) => {
+            acc[row.patch] = row.count;
+            acc.total += row.count;
+            return acc;
+        }, { total: 0 });
+        const megabytes = fs.statSync(DB_PATH).size / (1024 * 1024);
+        return {
+            patches,
+            megabytes,
+            matchesPerMegabyte: patches.total / megabytes,
+        };
     }
 }

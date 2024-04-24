@@ -43,6 +43,10 @@ export default () => {
         }
     }));
 
+    app.get('/api/status', asyncHandler(async (_: Request, res: Response) => {
+        res.send({ patch: await DB.getDBStatus() });
+    }));
+
     app.use(express.static('./dist/client'));
 
     app.get('*', (_: Request, res: Response) => {
