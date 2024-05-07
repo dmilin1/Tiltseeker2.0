@@ -17,6 +17,9 @@ RUN npm ci
 # Copy application code
 COPY ./dist ./dist
 
+# Copy sitemap
+COPY ./sitemap.xml ./sitemap.xml
+
 # Setup sqlite3 on a separate volume
 RUN mkdir -p /data
 VOLUME /data

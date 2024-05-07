@@ -49,6 +49,10 @@ export default () => {
 
     app.use(express.static('./dist/client'));
 
+    app.get('/sitemap.xml', (req, res) => {
+        res.sendFile('sitemap.xml', { root: './' });
+	});
+
     app.get('*', (_: Request, res: Response) => {
         res.sendFile('index.html', { root: './dist/client' });
     });
