@@ -54,7 +54,18 @@ export default class DataCollector {
     }
 
     private async cleanupOldData() {
-        // TODO: Probably have enough DB for at least 20 million matches so this is a later problem
+        if (this.region !== 'NA1') {
+            // Don't need all the data collectors to be deleting old data or
+            // we could lose data too quickly. We only need one to do it so
+            // we'll just have NA1 do it.
+            return;
+        }
+        const matchCount = await DB.getMatchCount();
+        if (matchCount > 30_000_000) {
+            const oldestPatch = await DB.getOldestPatch();
+            await DB.deleteMatches(oldestPatch);
+            console.log(`Deleted matches from patch ${oldestPatch}`);
+        }
     }
 
     private async cleanupSeedUsers() {

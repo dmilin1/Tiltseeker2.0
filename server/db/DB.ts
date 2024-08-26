@@ -207,6 +207,13 @@ export default class DB {
         });
     }
 
+    public static async getOldestPatch(): Promise<string> {
+        await DB.init();
+        const patches = await DB.db.all('SELECT DISTINCT(patch) AS patch FROM champions');
+        patches.sort((a, b) => patchToNum(String(b.patch)) - patchToNum(String(a.patch)) < 0 ? 1 : -1);
+        return patches[0].patch;
+    }
+
     public static async getMatchups(patch: string): Promise<Matchups> {
         await DB.init();
         return Cache.get(`matchups-${patch}`, 1000 * 60 * 15, async () => {
@@ -258,6 +265,30 @@ export default class DB {
             }
             return result;
         });
+    }
+
+    public static async getMatchCount(): Promise<number> {
+        const rows = await DB.db.all(`
+            SELECT
+                COUNT(*) as count
+            FROM matches;
+        `);
+        return rows[0].count;
+    }
+
+    public static async deleteMatches(patch: string): Promise<void> {
+        await DB.db.run(`
+            DELETE FROM matches
+            WHERE patch = ?
+        `, [patch]);
+        await DB.db.run(`
+            DELETE FROM champions
+            WHERE patch = ?
+        `, [patch]);
+        await DB.db.run(`
+            DELETE FROM matchup
+            WHERE patch = ?
+        `, [patch]);
     }
 
     public static async getDBStatus(): Promise<any> {
